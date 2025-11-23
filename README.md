@@ -21,13 +21,13 @@ A simple graphical user interface for yt-dlp, allowing you to download videos fr
 
 ## Installation
 
-1. Clone or download this repository
-2. Ensure yt-dlp and ffmpeg are installed
-3. Run the application: `python yt_dlp_gui.py`
+1. Download latest release
+2. Unpack archive
+3. Run the application
 
 ## Usage
 
-1. Run the GUI by executing: `python yt_dlp_gui.py`
+1. Run the GUI by executing: `yt-dlp-gui.exe`
 2. Enter the video URL in the input field
 3. Select your download options:
    - Download type: Video + Audio, Audio Only, or Video Only
@@ -59,3 +59,7 @@ Access the Settings window via the "File" menu to configure:
 ## Batch Downloads
 
 You can download multiple videos from a text file containing one URL per line by selecting "Load Links from File".
+
+## License
+
+This GUI wrapper is provided as-is, and uses yt-dlp under its own license terms.
