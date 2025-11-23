@@ -2,10 +2,12 @@
 
 A simple graphical user interface for yt-dlp, allowing you to download videos from various websites with a user-friendly interface.
 
+![GUI][def]
+
 ## Features
 
 - Download videos from any supported site (YouTube, Vimeo, etc.)
-- Choose between video + audio, audio-only, or video-only downloads
+- Choose between video + audio or downloads
 - Select video quality (best, 1080p, 720p, etc.)
 - Choose output format (mp4, mp3, mkv, etc.)
 - Download entire playlists with scope selection (all, first, last, between, specific items)
@@ -15,21 +17,21 @@ A simple graphical user interface for yt-dlp, allowing you to download videos fr
 
 ## Requirements
 
-- [Python 3.x](https://www.python.org/downloads/)
-- [yt-dlp](https://github.com/yt-dlp/yt-dlp)
-- [ffmpeg](https://www.ffmpeg.org/download.html)
+- Python 3.x
+- yt-dlp
+- ffmpeg
 
 ## Installation
 
-1. [Download](https://github.com/btrf/yt-dlp-gui/releases/latest)
-3. Unpack archive
-4. Run the application by executing: `yt-dlp-gui.exe`
+1. [Download latest release](https://github.com/btrf/yt-dlp-gui/releases/latest)
+2. Unpack archive
+3. Run the application by executing: `yt-dlp-gui.exe`
 
 ## Usage
 
 1. Enter the video URL in the input field
 2. Select your download options:
-   - Download type: Video + Audio, Audio Only, or Video Only
+   - Download type: Video + Audio or Audio Only
    - Quality: Best, 1080p, 720p, etc.
    - Format: mp4, mp3, mkv, etc.
    - Check "Download Playlist" to download entire playlists
@@ -62,3 +64,6 @@ You can download multiple videos from a text file containing one URL per line by
 ## License
 
 This GUI wrapper is provided as-is, and uses yt-dlp under its own license terms.
+
+
+[def]: GUI.png
