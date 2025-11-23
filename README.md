@@ -21,24 +21,23 @@ A simple graphical user interface for yt-dlp, allowing you to download videos fr
 
 ## Installation
 
-1. Download latest release
-2. Unpack archive
-3. Run the application
+1. [Download](https://github.com/btrf/yt-dlp-gui/releases/latest)
+3. Unpack archive
+4. Run the application by executing: `yt-dlp-gui.exe`
 
 ## Usage
 
-1. Run the GUI by executing: `yt-dlp-gui.exe`
-2. Enter the video URL in the input field
-3. Select your download options:
+1. Enter the video URL in the input field
+2. Select your download options:
    - Download type: Video + Audio, Audio Only, or Video Only
    - Quality: Best, 1080p, 720p, etc.
    - Format: mp4, mp3, mkv, etc.
    - Check "Download Playlist" to download entire playlists
    - Select playlist scope if downloading a playlist
-4. Select the download path (defaults to ~/Downloads/yt-dlp)
-5. Add any additional custom options if needed
-6. Click "Download" to start the download
-7. View progress in the status bar and detailed log
+3. Select the download path (defaults to ~/Downloads/yt-dlp)
+4. Add any additional custom options if needed
+5. Click "Download" to start the download
+6. View progress in the status bar and detailed log
 
 ## Custom Options
 
