@@ -1,6 +1,6 @@
 # yt-dlp GUI
 
-A simple graphical user interface for yt-dlp, allowing you to download videos from various websites with a user-friendly interface.
+A simple graphical user interface for yt-dlp, allowing you to download videos from various websites (YouTube, Hub, etc.) with a user-friendly interface.
 
 ![GUI][def]
 
@@ -26,6 +26,8 @@ A simple graphical user interface for yt-dlp, allowing you to download videos fr
 1. [Download latest release](https://github.com/btrf/yt-dlp-gui/releases/latest)
 2. Unpack archive
 3. Run the application by executing: `yt-dlp-gui.exe`
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/btrf)
 
 ## Usage
 
