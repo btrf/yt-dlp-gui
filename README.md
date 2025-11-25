@@ -66,5 +66,8 @@ You can download multiple videos from a text file containing one URL per line by
 
 This GUI wrapper is provided as-is, and uses yt-dlp under its own license terms.
 
+## Donate
+
+[![YooMoney](https://img.shields.io/badge/Support-YooMoney-orange?style=flat-square&logo=yoomoney)](https://yoomoney.ru/to/41001937179526)  
 
 [def]: GUI.png
