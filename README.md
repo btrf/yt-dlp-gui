@@ -7,7 +7,7 @@ A simple graphical user interface for yt-dlp, allowing you to download videos fr
 ## Features
 
 - Download videos from any supported site (YouTube, Vimeo, etc.)
-- Choose between video + audio or downloads
+- Choose between video + audio or audio downloads
 - Select video quality (best, 1080p, 720p, etc.)
 - Choose output format (mp4, mp3, mkv, etc.)
 - Download entire playlists with scope selection (all, first, last, between, specific items)
@@ -17,7 +17,6 @@ A simple graphical user interface for yt-dlp, allowing you to download videos fr
 
 ## Requirements
 
-- Python 3.x
 - yt-dlp
 - ffmpeg
 
