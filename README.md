@@ -70,4 +70,6 @@ This GUI wrapper is provided as-is, and uses yt-dlp under its own license terms.
 
 [![YooMoney](https://img.shields.io/badge/Support-YooMoney-orange?style=flat-square&logo=yoomoney)](https://yoomoney.ru/to/41001937179526)  
 
+![QR Code for Donations](qr.png)
+
 [def]: GUI.png
