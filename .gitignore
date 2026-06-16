@@ -45,9 +45,8 @@ build/
 dist/
 _internal/
 
-# Large binaries (download separately)
-ffmpeg.exe
-yt-dlp.exe
+# Large binaries (download separately to bin/)
+bin/*.exe
 
 # Log files
 *.log

@@ -28,8 +28,8 @@ class YtDlpGUI:
 
         self.config_file = "yt-dlp-gui.json"
         self.config = self.load_config()
-        self.yt_dlp_path = self.config.get("yt_dlp_path", "yt-dlp")
-        self.ffmpeg_path = self.config.get("ffmpeg_path", "ffmpeg")
+        self.yt_dlp_path = self.config.get("yt_dlp_path", "bin/yt-dlp.exe")
+        self.ffmpeg_path = self.config.get("ffmpeg_path", "bin/ffmpeg.exe")
         self.current_process = None
 
         self.create_menu()
@@ -512,8 +512,8 @@ Examples:
 
     def load_config(self):
         default_config = {
-            "yt_dlp_path": "yt-dlp",
-            "ffmpeg_path": "ffmpeg",
+            "yt_dlp_path": "bin/yt-dlp.exe",
+            "ffmpeg_path": "bin/ffmpeg.exe",
             "default_download_path": os.path.expanduser("~/Downloads/yt-dlp")
         }
 
