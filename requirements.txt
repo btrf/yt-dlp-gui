@@ -1,0 +1,7 @@
+# Dependencies for yt-dlp GUI
+# Note: This project uses standard Python libraries with tkinter
+# yt-dlp is required and should be installed separately
+# ffmpeg is optional but recommended for post-processing
+
+# Install yt-dlp separately with: pip install yt-dlp
+# Install tkinter separately if needed: sudo apt install python3-tk (on Ubuntu)
