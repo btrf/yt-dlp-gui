@@ -8,18 +8,15 @@ yt-dlp-gui/
 ├── LICENSE
 ├── .gitignore
 ├── requirements.txt
-├── yt_dlp_gui.py
-├── run_gui.bat
-├── run_gui.sh
-├── install.bat
-├── install.sh
-├── setup_permissions.txt
+├── version.py
+├── yt_dlp_gui_qt.py
+├── download_manager.py
+├── yt_dlp_gui.spec
+├── yt-dlp-gui.json
+├── test_downloader.py
 ├── GUI.png
-├── yt_dlp_gui.ico
-├── yt_dlp_gui_1.ico
-├── yt_dlp_gui_2.ico
-├── yt-dlp-gui.spec
-└── yt_dlp_gui_config.json
+├── yt-dlp-gui.ico
+└── bin/
 ```
 
 ## Description
@@ -30,7 +27,7 @@ Complete cross-platform GUI application for yt-dlp with the following features:
 - Extract audio only
 - Download entire playlists with scope options
 - View download progress
-- Cancel downloads
+- Stop running downloads
 - Load links from file
 - Customize filename templates
 - Settings for executable paths

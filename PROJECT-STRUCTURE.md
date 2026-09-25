@@ -8,9 +8,13 @@ yt-dlp-gui/
 ├── LICENSE
 ├── .gitignore
 ├── requirements.txt
-├── yt_dlp_gui.py              # Main application
-├── run.bat                   # Run script (Windows)
-└── yt-dlp-gui.json           # Default config file (will be created on first run)
+├── version.py                # Application version
+├── yt_dlp_gui_qt.py          # Qt application
+├── download_manager.py       # yt-dlp process management
+├── yt_dlp_gui.spec           # PyInstaller build specification
+├── yt-dlp-gui.json           # Default configuration
+├── test_downloader.py
+└── bin/                      # Bundled yt-dlp and ffmpeg executables
 ```
 
 ## Description

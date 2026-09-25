@@ -1,7 +1,6 @@
 # Dependencies for yt-dlp GUI
-# Note: This project uses standard Python libraries with tkinter
-# yt-dlp is required and should be installed separately
-# ffmpeg is optional but recommended for post-processing
+PyQt6>=6.9,<7
 
+# The GUI uses PyQt6; yt-dlp and ffmpeg are bundled separately.
 # Install yt-dlp separately with: pip install yt-dlp
-# Install tkinter separately if needed: sudo apt install python3-tk (on Ubuntu)
+# ffmpeg is required for merging video and audio streams

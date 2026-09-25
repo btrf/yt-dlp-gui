@@ -1,5 +1,5 @@
 {
   "yt_dlp_path": "bin/yt-dlp.exe",
   "ffmpeg_path": "bin/ffmpeg.exe",
-  "default_download_path": "C:/Downloads/yt-dlp"
+  "default_download_path": "C:/Downloads"
 }
