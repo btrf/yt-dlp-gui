@@ -64,17 +64,6 @@ Access the Settings window via the "File" menu to configure:
 
 You can download multiple videos from a text file containing one URL per line by selecting "Load Links from File".
 
-## Versioning
-
-The application uses semantic versioning (`MAJOR.MINOR.PATCH`):
-
-- `2.0.0` — Qt-based release;
-- `2.0.1` — current release: playlist item selection, input locking during download;
-- `2.1.0` — new features;
-- `3.0.0` — breaking changes.
-
-Release tags use the `v` prefix, for example `v2.0.1`. The bundled yt-dlp version is tracked separately and is displayed in the download log.
-
 ## License
 
 This GUI wrapper is provided as-is, and uses yt-dlp under its own license terms.
