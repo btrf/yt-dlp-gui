@@ -2,20 +2,20 @@
 
 Current application version: **2.0.3**
 
-A simple graphical user interface for yt-dlp, allowing you to download videos from various websites (YouTube, Hub, etc.) with a user-friendly interface.
+A simple graphical user interface for yt-dlp, allowing you to download videos from various websites (YouTube, PronHub, etc.) with a user-friendly interface.
 
 ![GUI][def]
 
 ## Features
 
 - Download videos from any supported site (YouTube, Vimeo, etc.)
-- Choose between video + audio or audio downloads
+- Choose between video or audio downloads
 - Select video quality (best, 1080p, 720p, etc.)
-- Choose output format (mp4, mp3, mkv, etc.)
+- Choose output format (mp4, mkv, mp3, etc.)
 - Download entire playlists with scope selection (all, first, last, between, specific items)
+- Filename template customization
 - Add custom yt-dlp options
-- Load list of links from file
-- Filename template customization with help dialog
+- Batch processing: load list of links from file
 
 ## Requirements
 
@@ -25,8 +25,7 @@ A simple graphical user interface for yt-dlp, allowing you to download videos fr
 ## Installation
 
 1. [Download latest release](https://github.com/btrf/yt-dlp-gui/releases/latest)
-2. Unpack archive
-3. Run the application by executing: `yt-dlp-gui-portable-X.X.X.exe`
+2. Run the portable application
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/btrf)
 
