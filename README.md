@@ -1,6 +1,6 @@
 # yt-dlp GUI
 
-Current application version: **2.0.1**
+Current application version: **2.0.2**
 
 A simple graphical user interface for yt-dlp, allowing you to download videos from various websites (YouTube, Hub, etc.) with a user-friendly interface.
 
@@ -26,7 +26,7 @@ A simple graphical user interface for yt-dlp, allowing you to download videos fr
 
 1. [Download latest release](https://github.com/btrf/yt-dlp-gui/releases/latest)
 2. Unpack archive
-3. Run the application by executing: `yt-dlp-gui-portable-v2.0.1.exe`
+3. Run the application by executing: `yt-dlp-gui-portable-X.X.X.exe`
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/btrf)
 

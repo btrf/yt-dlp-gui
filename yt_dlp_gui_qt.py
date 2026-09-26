@@ -13,7 +13,7 @@ from PyQt6.QtWidgets import (
     QDialog, QListWidget, QSizePolicy
 )
 from PyQt6.QtCore import (
-    QThread, pyqtSignal, QObject, Qt, QSize
+    QThread, pyqtSignal, QObject, Qt, QSize, QTimer
 )
 from PyQt6.QtGui import QIcon
 
@@ -172,6 +172,10 @@ class YtDlpGUI(QMainWindow):
         self.manager = manager
         
         self.url_list = []
+        self.url_queue = []
+        self.batch_active = False
+        self.batch_total = 0
+        self.batch_current = 0
         self.worker_thread = None
         self.worker = None
         self.format_selections = {"video": "mp4", "audio": "mp3"}
@@ -181,6 +185,7 @@ class YtDlpGUI(QMainWindow):
 
     def init_ui(self):
         self.setWindowTitle(f"yt-dlp GUI {APP_VERSION}")
+        self.base_window_title = f"yt-dlp GUI {APP_VERSION}"
         menu_bar = self.menuBar()
         help_menu = menu_bar.addMenu("Help")
         template_help_action = help_menu.addAction("Filename Templates")
@@ -603,16 +608,25 @@ class YtDlpGUI(QMainWindow):
         self.worker_thread.start()
 
     def start_batch_worker(self):
-        self.status_label.setText(f"Batch downloading {len(self.url_list)} URLs...")
+        if self.worker is not None:
+            QMessageBox.warning(self, "Error", "A download is already running.")
+            return
+        self.batch_active = True
+        self.batch_total = len(self.url_list)
+        self.batch_current = 0
+        self.url_queue = list(self.url_list)
+        self.status_label.setText(f"Batch downloading {self.batch_total} URLs...")
         self.progress_bar.setValue(0)
-        
-        # For simplicity in this migration, we will run the batch sequentially using the single download worker's logic
-        for i, url in enumerate(self.url_list):
-            self.log_message(f"--- Starting Batch Download ({i+1}/{len(self.url_list)}) ---")
-            
-            # Re-initialize manager/worker for sequential process if needed, but for now, we rely on the manager's state.
-            self.start_download_worker(url, "", self.filename_template_entry.text(), self.download_type.currentText(), self.quality_combo.currentText(), self.options_entry.text(), self.format_combo.currentText())
-            # Note: In a real app, this loop would be managed by a dedicated BatchManager class.
+        self._start_next_batch_item()
+
+    def _start_next_batch_item(self):
+        if not self.url_queue:
+            return
+        url = self.url_queue.pop(0)
+        self.batch_current += 1
+        self.log_message(f"--- Starting Batch Download ({self.batch_current}/{self.batch_total}) ---")
+        self.setWindowTitle(f"{self.base_window_title} - Batch {self.batch_current}/{self.batch_total}")
+        self.start_download_worker(url, "", self.filename_template_entry.text(), self.download_type.currentText(), self.quality_combo.currentText(), self.options_entry.text(), self.format_combo.currentText())
 
     def update_progress(self, progress):
         self.progress_bar.setValue(int(progress))
@@ -637,20 +651,31 @@ class YtDlpGUI(QMainWindow):
         self.log_text.clear()
 
     def download_finished(self):
+        cancelled = bool(self.manager.cancelled) if self.manager is not None else False
+        if self.batch_active and not cancelled and self.url_queue:
+            QTimer.singleShot(0, self._start_next_batch_item)
+            return
         self.download_btn.setEnabled(True)
         self.cancel_btn.setEnabled(False)
         self.set_input_sections_enabled(True)
-        if self.manager.cancelled:
+        if cancelled:
             self.update_status("Cancelled")
+        if self.batch_active:
+            self.log_message(f"--- Batch finished: {self.batch_current}/{self.batch_total} ---")
+            self.batch_active = False
+            self.url_queue = []
+        self.setWindowTitle(self.base_window_title)
         self.worker_thread = None
         self.worker = None
-        self.manager.is_running = False
+        if self.manager is not None:
+            self.manager.is_running = False
 
     def cancel_download(self):
         if self.worker is None:
             return
         self.status_label.setText("Stopping...")
         self.cancel_btn.setEnabled(False)
+        self.manager.cancelled = True
         self.worker.terminate()
         
     def closeEvent(self, event):
