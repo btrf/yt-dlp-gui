@@ -569,6 +569,7 @@ class YtDlpGUI(QMainWindow):
     def set_input_sections_enabled(self, enabled):
         for group in (self.source_group, self.playlist_group, self.options_group):
             group.setEnabled(enabled)
+        self.load_links_btn.setEnabled(enabled)
 
     def start_download_worker(self, url, playlist_items, template, download_type, quality, options, output_format=""):
         self.status_label.setText("Initializing...")
