@@ -1,6 +1,6 @@
 # yt-dlp GUI
 
-Current application version: **2.0.2**
+Current application version: **2.0.3**
 
 A simple graphical user interface for yt-dlp, allowing you to download videos from various websites (YouTube, Hub, etc.) with a user-friendly interface.
 
