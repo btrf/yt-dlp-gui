@@ -39,10 +39,9 @@ A simple graphical user interface for yt-dlp, allowing you to download videos fr
    - Format: mp4, mp3, mkv, etc.
    - Check "Download Playlist" to download entire playlists
    - Select playlist scope if downloading a playlist
-3. Select the download path (defaults to ~/Downloads/yt-dlp)
-4. Add any additional custom options if needed
-5. Click "Download" to start the download
-6. View progress in the status bar and detailed log
+3. Select the download path
+4. Click "Download" to start the download
+5. View progress in the status bar and detailed log
 
 ## Custom Options
 
@@ -51,14 +50,6 @@ You can add additional yt-dlp options in the "Additional Options" field. Example
 - `--limit-rate 1M` - Limit download rate to 1MB/s
 - `--retries 5` - Retry failed downloads 5 times
 - `--username user --password pass` - Authenticate with username/password
-
-## Settings
-
-Access the Settings window via the "File" menu to configure:
-
-- Path to yt-dlp executable (default: yt-dlp)
-- Path to ffmpeg executable (default: ffmpeg)
-- Default download path (~/Downloads/yt-dlp)
 
 ## Batch Downloads
 
