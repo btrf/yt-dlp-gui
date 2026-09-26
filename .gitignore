@@ -33,6 +33,10 @@ ENV/
 *.swo
 *~
 
+# AI agent instructions (local only)
+AGENTS.md
+CLAUDE.md
+
 # OS
 .DS_Store
 Thumbs.db
