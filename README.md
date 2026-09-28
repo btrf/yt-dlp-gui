@@ -1,6 +1,6 @@
 # YouTube Download Manager
 
-A simple graphical user interface for yt-dlp, allowing you to download videos from various websites (YouTube, PronHub, etc.) with a user-friendly interface.
+A simple graphical user interface for [yt-dlp](https://github.com/yt-dlp/yt-dlp), allowing you to download videos from various websites (YouTube, PronHub, etc.) with a user-friendly interface.
 
 ![GUI][def]
 
@@ -25,13 +25,13 @@ A simple graphical user interface for yt-dlp, allowing you to download videos fr
 ## Usage
 
 1. Enter the video URL in the input field
-2. Select your download options:
-   - Download type: Video + Audio or Audio Only
+2. Select the download path
+3. Select your download options:
+   - Download type: Video or Audio Only
    - Quality: Best, 1080p, 720p, etc.
    - Format: mp4, mp3, mkv, etc.
-   - Check "Download Playlist" to download entire playlists
-   - Select playlist scope if downloading a playlist
-3. Select the download path
+   - Check "Download Playlist" to download playlist
+   - Select playlist scope or items if downloading a playlist
 4. Click "Download" to start the download
 5. View progress in the status bar and detailed log
 
