@@ -1,4 +1,4 @@
-# yt-dlp GUI
+# YouTube Download Manager
 
 A simple graphical user interface for yt-dlp, allowing you to download videos from various websites (YouTube, PronHub, etc.) with a user-friendly interface.
 
