@@ -297,7 +297,7 @@ code {
 .hero__facts li {
   position: relative;
   padding-left: 26px;
-  color: var(--text-dim);
+  color: #2ecc71;
   font-size: 14.5px;
 }
 
