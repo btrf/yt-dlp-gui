@@ -1,7 +1,5 @@
 # yt-dlp GUI
 
-Current application version: **2.0.3**
-
 A simple graphical user interface for yt-dlp, allowing you to download videos from various websites (YouTube, PronHub, etc.) with a user-friendly interface.
 
 ![GUI][def]
@@ -16,11 +14,6 @@ A simple graphical user interface for yt-dlp, allowing you to download videos fr
 - Filename template customization
 - Add custom yt-dlp options
 - Batch processing: load list of links from file
-
-## Requirements
-
-- yt-dlp
-- ffmpeg
 
 ## Installation
 
@@ -53,6 +46,10 @@ You can add additional yt-dlp options in the "Additional Options" field. Example
 ## Batch Downloads
 
 You can download multiple videos from a text file containing one URL per line by selecting "Load Links from File".
+
+## ToDo
+
+Ideas, suggestions and proposals for the further development of this project are welcome. Please describe them in an issue: https://github.com/btrf/yt-dlp-gui/issues
 
 ## License
 
