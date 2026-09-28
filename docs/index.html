@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>yt-dlp GUI — портативный графический загрузчик видео и аудио для Windows</title>
+<meta name="description" data-i18n-content="meta_description" content="yt-dlp GUI — лёгкое портативное приложение для Windows: скачивание видео и аудио с сайтов, поддержка плейлистов, выбор качества и формата, пакетная загрузка. Без установки.">
+<link rel="icon" href="favicon.png" type="image/png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap topbar__inner">
+    <a class="brand" href="#top">
+      <img src="favicon.png" alt="yt-dlp GUI" class="brand__icon" width="32" height="32">
+      <span class="brand__name">yt-dlp<span class="brand__accent">GUI</span></span>
+    </a>
+    <nav class="nav" aria-label="Navigation">
+      <a href="#features" data-i18n="nav_features">Возможности</a>
+      <a href="#install" data-i18n="nav_install">Установка</a>
+      <a href="#usage" data-i18n="nav_usage">Использование</a>
+      <a href="#support" data-i18n="nav_support">Поддержка</a>
+    </nav>
+    <button class="lang-toggle" id="lang-toggle" type="button" aria-live="polite">
+      <span class="lang-toggle__item" data-lang="ru">RU</span>
+      <span class="lang-toggle__sep">/</span>
+      <span class="lang-toggle__item" data-lang="en">EN</span>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+
+  <section class="hero">
+    <div class="wrap hero__inner">
+      <div class="hero__text">
+        <p class="badge" data-i18n="hero_badge">Портативное приложение для Windows</p>
+        <h1 data-i18n="hero_title">Скачивайте видео и аудио без лишних усилий</h1>
+        <p class="hero__lead" data-i18n="hero_lead">yt-dlp GUI — лёгкая графическая обёртка над yt-dlp. Один файл, никакой установки: запустил, вставил ссылку, получил файл.</p>
+        <div class="hero__actions">
+          <a class="btn btn--primary" href="https://github.com/btrf/yt-dlp-gui/releases/latest" data-i18n="cta_download">Скачать для Windows</a>
+          <a class="btn btn--ghost" href="#install" data-i18n="cta_secondary">Как установить</a>
+        </div>
+        <ul class="hero__facts">
+          <li data-i18n="fact_no_install">Без установки</li>
+          <li data-i18n="fact_single_file">Один файл</li>
+          <li data-i18n="fact_free">Бесплатно</li>
+          <li data-i18n="fact_offline_ready">Готов к работе сразу</li>
+        </ul>
+      </div>
+      <div class="hero__media">
+        <img src="GUI.png" alt="yt-dlp GUI" class="hero__shot" width="1077" height="670" data-i18n-alt="hero_image_alt">
+      </div>
+    </div>
+  </section>
+
+  <section class="demo" id="demo">
+    <div class="wrap">
+      <h2 data-i18n="demo_title">Демонстрация</h2>
+      <p class="section__lead" data-i18n="demo_lead">Загрузка из списка ссылок, прогресс и итог — всё в одном окне.</p>
+      <img src="yt-dlp-gui-portable-v2.0.3.gif" alt="Демонстрация работы yt-dlp GUI" class="demo__gif" width="1077" height="670" loading="lazy" data-i18n-alt="demo_image_alt">
+    </div>
+  </section>
+
+  <section class="features" id="features">
+    <div class="wrap">
+      <h2 data-i18n="features_title">Возможности</h2>
+      <p class="section__lead" data-i18n="features_lead">Всё, что нужно для загрузки видео и аудио, — и ничего лишнего.</p>
+      <div class="grid">
+        <article class="card">
+          <h3 data-i18n="feature_sites_title">Сайты, которые поддерживает yt-dlp</h3>
+          <p data-i18n="feature_sites_text">YouTube, VK, OK, Twitter/X, TikTok, Instagram*, Dailymotion, Reddit и тысячи других — покрытие целиком берётся от yt-dlp.</p>
+        </article>
+        <article class="card">
+          <h3 data-i18n="feature_media_title">Видео и аудио</h3>
+          <p data-i18n="feature_media_text">Сохраняйте полноценные видеоролики или извлекайте звук в MP3/M4A.</p>
+        </article>
+        <article class="card">
+          <h3 data-i18n="feature_quality_title">Качество и формат</h3>
+          <p data-i18n="feature_quality_text">Выберите пресет качества (до 4K), ограничьте разрешение по высоте или задайте конкретный формат.</p>
+        </article>
+        <article class="card">
+          <h3 data-i18n="feature_playlists_title">Плейлисты</h3>
+          <p data-i18n="feature_playlists_text">Скачивайте плейлист целиком, только первый или последний ролик, диапазон «2:5» или выбранные элементы «1,3,5».</p>
+        </article>
+        <article class="card">
+          <h3 data-i18n="feature_filename_title">Шаблон имени файла</h3>
+          <p data-i18n="feature_filename_text">Задайте свой шаблон, например <code>%(title)s [%(id)s].%(ext)s</code>, и сохраняйте файлы так, как удобно.</p>
+        </article>
+        <article class="card">
+          <h3 data-i18n="feature_extra_title">Дополнительные аргументы</h3>
+          <p data-i18n="feature_extra_text">Пробросьте любые флаги yt-dlp вручную, если нужно нестандартное поведение.</p>
+        </article>
+        <article class="card">
+          <h3 data-i18n="feature_batch_title">Пакетная загрузка из файла</h3>
+          <p data-i18n="feature_batch_text">Импортируйте <code>.txt</code>-список ссылок — приложение скачает их по очереди в одном запуске.</p>
+        </article>
+        <article class="card">
+          <h3 data-i18n="feature_config_title">Запоминание настроек</h3>
+          <p data-i18n="feature_config_text">Выбор качества, шаблон имени и дополнительные аргументы сохраняются между запусками.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="install" id="install">
+    <div class="wrap install__inner">
+      <div class="install__text">
+        <h2 data-i18n="install_title">Установка и запуск</h2>
+        <p class="section__lead" data-i18n="install_lead">Установка не требуется — приложение работает одним файлом.</p>
+        <ol class="steps">
+          <li data-i18n="step_1">Скачайте <code>yt-dlp-gui-portable-v2.0.3.exe</code> со страницы релизов.</li>
+          <li data-i18n="step_2">Сохраните файл в любую папку — например, в <code>C:\yt-dlp-gui\</code>.</li>
+          <li data-i18n="step_3">Запустите <code>.exe</code>. Windows может показать предупреждение SmartScreen — нажмите «Подробнее» → «Выполнить в любом случае».</li>
+          <li data-i18n="step_4">Вставьте ссылку на видео или импортируйте список ссылок из файла и нажмите «Скачать».</li>
+        </ol>
+        <p class="note" data-i18n="install_note">Нужен только <code>ffmpeg</code> для объединения дорожек и конвертации звука — он входит в сборку или устанавливается отдельно.</p>
+        <a class="btn btn--primary" href="https://github.com/btrf/yt-dlp-gui/releases/latest" data-i18n="cta_download_again">Перейти к загрузке</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="usage" id="usage">
+    <div class="wrap">
+      <h2 data-i18n="usage_title">Как пользоваться</h2>
+      <p class="section__lead" data-i18n="usage_lead">Четыре шага — и файл у вас на диске.</p>
+      <div class="steps-grid">
+        <article class="step">
+          <span class="step__num">1</span>
+          <h3 data-i18n="usage_step_1_title">Вставьте ссылку</h3>
+          <p data-i18n="usage_step_1_text">Скопируйте адрес страницы с видео и вставьте его в поле Source.</p>
+        </article>
+        <article class="step">
+          <span class="step__num">2</span>
+          <h3 data-i18n="usage_step_2_title">Выберите параметры</h3>
+          <p data-i18n="usage_step_2_text">Тип (видео/аудио), качество, формат, шаблон имени и дополнительные аргументы.</p>
+        </article>
+        <article class="step">
+          <span class="step__num">3</span>
+          <h3 data-i18n="usage_step_3_title">Запустите загрузку</h3>
+          <p data-i18n="usage_step_3_text">Нажмите «Скачать» — прогресс отображается в реальном времени.</p>
+        </article>
+        <article class="step">
+          <span class="step__num">4</span>
+          <h3 data-i18n="usage_step_4_title">Заберите файл</h3>
+          <p data-i18n="usage_step_4_text">Готовый файл окажется в папке Downloads или там, куда вы его направите.</p>
+        </article>
+      </div>
+      <div class="options-note">
+        <h3 data-i18n="options_title">Плейлисты и список ссылок</h3>
+        <p data-i18n="options_text">Отметьте «Скачать плейлист», чтобы включить выбор области: весь список, первый или последний элемент, диапазон или конкретные номера. Кнопка импорта принимает обычный текстовый файл со ссылками — каждая строка обрабатывается по очереди.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="support" id="support">
+    <div class="wrap support__inner">
+      <div class="support__text">
+        <h2 data-i18n="support_title">Поддержать проект</h2>
+        <p class="section__lead" data-i18n="support_lead">Проект бесплатный и с открытым кодом. Если он оказался полезным, можно поддержать его донатом.</p>
+        <a class="btn btn--primary" href="https://ko-fi.com/btrf" data-i18n="cta_donate">Поддержать на Ko-fi</a>
+        <a class="btn btn--ghost" href="https://github.com/btrf/yt-dlp-gui/issues" data-i18n="cta_issues">Сообщить о проблеме</a>
+      </div>
+      <div class="support__qr">
+        <img src="qr.png" alt="QR-код для поддержки проекта" width="256" height="256" loading="lazy" data-i18n-alt="support_image_alt">
+        <p data-i18n="support_qr_caption">Отсканируйте QR-код</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap footer__inner">
+    <p class="footer__copy">yt-dlp GUI <span class="footer__version" id="app-version">2.0.3</span></p>
+    <p class="footer__links">
+      <a href="https://github.com/btrf/yt-dlp-gui" data-i18n="footer_source">Исходный код</a>
+      <a href="https://github.com/btrf/yt-dlp-gui/releases/latest" data-i18n="footer_releases">Релизы</a>
+      <a href="https://github.com/btrf/yt-dlp-gui/issues" data-i18n="footer_issues">Проблемы</a>
+    </p>
+  </div>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
