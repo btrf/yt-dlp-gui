@@ -64,4 +64,4 @@ This GUI wrapper is provided as-is, and uses yt-dlp under its own license terms.
 
 ![QR Code for Donations](qr.png)
 
-[def]: GUI.png
+[def]: yt-dlp-gui-portable-v2.0.3.gif
