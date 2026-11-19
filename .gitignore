@@ -42,12 +42,16 @@ CLAUDE.md
 Thumbs.db
 
 # Config files that are user-specific
-yt_dlp_gui_config.json
+yt-dlp-gui.ini
+*.log
+
+# Test/lint caches
+.pytest_cache/
+.ruff_cache/
 
 # PyInstaller build files
 build/
 dist/
-_internal/
 
 # Large binaries (download separately to bin/)
 bin/*.exe

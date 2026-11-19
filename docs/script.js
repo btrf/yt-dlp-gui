@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var APP_VERSION = '2.0.3';
+    var APP_VERSION = '3.0.3';
     var LANG_STORAGE_KEY = 'yt-dlp-gui-lang';
     var DEFAULT_LANG = 'ru';
     var SUPPORTED_LANGS = ['ru', 'en'];
@@ -30,7 +30,7 @@
             hero_image_alt: 'yt-dlp GUI',
             demo_title: 'Демонстрация',
             demo_lead: 'Загрузка из списка ссылок, прогресс и итог — всё в одном окне.',
-            demo_image_alt: 'Демонстрация работы yt-dlp GUI',
+            demo_image_alt: 'Демонстрация работы Portable Download Manager',
             features_title: 'Возможности',
             features_lead: 'Всё, что нужно для загрузки видео и аудио, — и ничего лишнего.',
             feature_sites_title: 'Сайты, которые поддерживает yt-dlp',
@@ -43,6 +43,8 @@
             feature_playlists_text: 'Скачивайте плейлист целиком, только первый или последний ролик, диапазон или выбранные элементы.',
             feature_filename_title: 'Шаблон имени файла',
             feature_filename_text: 'Задайте свой шаблон, например <code>%(title)s [%(id)s].%(ext)s</code>, и сохраняйте файлы так, как удобно.',
+            feature_ads_title: 'Без рекламных вставок',
+            feature_ads_text: 'Рекламные сегменты вырезаются из видео через SponsorBlock — включено по умолчанию и отключается одним флажком.',
             feature_extra_title: 'Дополнительные аргументы',
             feature_extra_text: 'Пробросьте любые флаги yt-dlp вручную, если нужно нестандартное поведение.',
             feature_batch_title: 'Пакетная загрузка из файла',
@@ -56,7 +58,7 @@
             install_title: 'Установка и запуск',
             install_lead: 'Установка не требуется — приложение работает одним файлом.',
             step_1: 'Скачайте <code>yt-dlp-gui-portable-vX.X.X.exe</code> со страницы релизов.',
-            step_2: 'Сохраните файл в любую папку.',
+            step_2: 'Сохраните файл в любую папку — например, в <code>C:\\yt-dlp-gui\\</code>.',
             step_3: 'Запустите <code>.exe</code>.',
             step_4: 'Вставьте ссылку на видео или импортируйте список ссылок из файла и нажмите «Скачать».',
             cta_download_again: 'Перейти к загрузке',
@@ -96,7 +98,7 @@
             hero_image_alt: 'yt-dlp GUI',
             demo_title: 'Demo',
             demo_lead: 'Downloading from a list of links, progress and the result — all in one window.',
-            demo_image_alt: 'yt-dlp GUI in action',
+            demo_image_alt: 'Portable Download Manager in action',
             features_title: 'Features',
             features_lead: 'Everything you need to download video and audio — and nothing extra.',
             feature_sites_title: 'Sites supported by yt-dlp',
@@ -109,6 +111,8 @@
             feature_playlists_text: 'Download a whole playlist, only the first or last item, a range or selected items.',
             feature_filename_title: 'Filename template',
             feature_filename_text: 'Set your own template, e.g. <code>%(title)s [%(id)s].%(ext)s</code>, and keep files the way you want.',
+            feature_ads_title: 'No ad breaks',
+            feature_ads_text: 'Sponsor segments are cut out of the video via SponsorBlock — enabled by default, one checkbox to turn off.',
             feature_extra_title: 'Extra arguments',
             feature_extra_text: 'Pass any yt-dlp flags manually if you need non-standard behaviour.',
             feature_batch_title: 'Batch download from file',
@@ -122,7 +126,7 @@
             install_title: 'Installation and launch',
             install_lead: 'No installation required — the app runs as a single file.',
             step_1: 'Download <code>yt-dlp-gui-portable-vX.X.X.exe</code> from the releases page.',
-            step_2: 'Save the file into any folder.',
+            step_2: 'Save the file into any folder, e.g. <code>C:\\yt-dlp-gui\\</code>.',
             step_3: 'Run the <code>.exe</code>.',
             step_4: 'Paste a video link or import a link list from a file and press "Download".',
             cta_download_again: 'Go to downloads',

@@ -1,64 +1,111 @@
-# YouTube Download Manager
+# yt-dlp GUI
 
-A simple graphical user interface for [yt-dlp](https://github.com/yt-dlp/yt-dlp), allowing you to download videos from various websites (YouTube, PronHub, etc.) with a user-friendly interface.
+A portable Windows desktop wrapper for [yt-dlp](https://github.com/yt-dlp/yt-dlp): paste a link, pick options, get the file. No installation required.
 
-![GUI][def]
+![Portable Download Manager][def]
 
 ## Features
 
-- Download videos from any supported site (YouTube, Vimeo, etc.)
-- Choose between video or audio downloads
-- Select video quality (best, 1080p, 720p, etc.)
-- Choose output format (mp4, mkv, mp3, etc.)
-- Download entire playlists with scope selection (all, first, last, between, specific items)
-- Filename template customization
-- Add custom yt-dlp options
-- Batch processing: load list of links from file
+- Download video or audio from any site supported by yt-dlp (YouTube, VK, TikTok, X, Vimeo, Reddit and thousands more)
+- MKV by default, with MP4/WebM and MP3/M4A/WAV available
+- Quality presets from 360p to 4K, picked through yt-dlp format sorting so video and audio always match
+- Playlists: all items, first, last, a range or selected numbers
+- Filename templates: a curated list of the most useful ones, with descriptions, copy and one-click apply
+- Ad-free video: sponsor segments are cut out via SponsorBlock (on by default, one checkbox to disable)
+- Extra yt-dlp arguments for anything the UI does not cover
+- Batch downloads from a `.txt` list, with a per-URL result summary and "retry failed"
+- Batch archive and "skip existing" so repeated runs do not download twice
+- `--cookies-from-browser` support for sites that require a login
+- One-click yt-dlp update and the installed version shown in the window
+- Portable: settings and download path live next to the executable
+- Russian and English interface (switches on the fly)
+- Live progress, speed and ETA, rotating log file, desktop notifications
+- Drag and drop links or a link file onto the window
 
 ## Installation
 
-1. [Download latest release](https://github.com/btrf/yt-dlp-gui/releases/latest)
-2. Run the portable application
+1. [Download the latest release](https://github.com/btrf/yt-dlp-gui/releases/latest)
+2. Grab `yt-dlp-gui-portable-vX.Y.Z.exe` - a single file, easiest to move around
+3. Run the `.exe`. Nothing is installed into the system.
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/btrf)
 
 ## Usage
 
-1. Enter the video URL in the input field
-2. Select the download path
-3. Select your download options:
-   - Download type: Video or Audio Only
-   - Quality: Best, 1080p, 720p, etc.
-   - Format: mp4, mp3, mkv, etc.
-   - Check "Download Playlist" to download playlist
-   - Select playlist scope or items if downloading a playlist
-4. Click "Download" to start the download
-5. View progress in the status bar and detailed log
+1. Paste a video link (the field is filled automatically from the clipboard when it contains a URL)
+2. Select the download folder
+3. Choose type (video/audio), quality, format and filename template
+4. For playlists tick "Download playlist" and pick a scope
+5. Press "Download" and watch progress, speed and ETA in the status bar
 
-## Custom Options
+## Custom options
 
-You can add additional yt-dlp options in the "Additional Options" field. Examples:
+The "Extra args" field accepts any yt-dlp flags:
 
-- `--limit-rate 1M` - Limit download rate to 1MB/s
-- `--retries 5` - Retry failed downloads 5 times
-- `--username user --password pass` - Authenticate with username/password
+- `--limit-rate 1M` - limit the download rate
+- `--retries 5` - retry failed downloads
+- `--username user --password pass` - authenticate
+- `--no-part` - do not use `.part` files
 
-## Batch Downloads
+Quoted values are supported: `--cookies "C:\my folder\cookies.txt"`.
 
-You can download multiple videos from a text file containing one URL per line by selecting "Load Links from File".
+## Batch downloads
 
-## ToDo
+Use "Load links from file" (or drop a `.txt` file onto the window): one URL per line, `#`, `;` and `//` lines are ignored, UTF-8 and cp1251 files both work. The result dialog lists every URL and offers to retry the failed ones.
 
-Ideas, suggestions and proposals for the further development of this project are welcome. Please describe them in an issue: https://github.com/btrf/yt-dlp-gui/issues
+## Troubleshooting
+
+The full log is written to `%TEMP%\yt-dlp-gui\yt-dlp-gui.log` (button "Open log file" in the status section) and is rotated automatically.
+
+The app checks at startup that `yt-dlp.exe`, `ffmpeg.exe` and `ffprobe.exe` are present:
+`ffmpeg` is needed for merging and converting, `ffprobe` for metadata/thumbnail post-processing.
+
+## Bundled binaries
+
+Release builds ship working binaries, so nothing has to be installed:
+
+| Binary | Version | Source |
+|---|---|---|
+| `yt-dlp.exe` | 2026.10.26 | [yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases) |
+| `ffmpeg.exe`, `ffprobe.exe` | 9.0.2 (essentials) | [gyan.dev builds](https://www.gyan.dev/ffmpeg/builds/) |
+
+FFmpeg is distributed under the GPLv3; the license text is bundled as `bin/FFMPEG-LICENSE.txt`.
+
+## Development
+
+```powershell
+py -3 -m venv .venv
+.venv\Scripts\python -m pip install -r requirements.txt -r requirements-dev.txt
+.venv\Scripts\python -m pytest
+.venv\Scripts\python yt_dlp_gui_qt.py
+```
+
+Project layout:
+
+```
+yt_dlp_gui_qt.py        entry point (also supports --self-test)
+core/command_builder.py yt-dlp argv construction (pure, unit-tested)
+core/progress.py        parsing of yt-dlp progress output
+core/runner.py          QProcess-based, non-blocking download runner
+core/config.py          portable config loading/saving
+ui/main_window.py       the window
+ui/dialogs.py           about / templates / batch summary
+ui/i18n.py              Russian and English strings
+ui/settings.py          portable QSettings (INI next to the exe)
+tools/bump_version.py   single-command version bump + consistency check
+```
+
+Build both portable layouts with `build.ps1`; `yt-dlp.exe`, `ffmpeg.exe` and `ffprobe.exe` go into `bin/`.
+
+Release workflow: bump the version with `python tools/bump_version.py X.Y.Z`, tag `vX.Y.Z` and push the tag - GitHub Actions builds and publishes the artifacts.
 
 ## License
 
-This GUI wrapper is provided as-is, and uses yt-dlp under its own license terms.
+This GUI wrapper is provided as-is. It bundles yt-dlp (Unlicense) and FFmpeg (GPLv3 - see `bin/FFMPEG-LICENSE.txt`), each under its own license terms.
 
 ## Donate
 
 [![YooMoney](https://img.shields.io/badge/Support-YooMoney-orange?style=flat-square&logo=yoomoney)](https://yoomoney.ru/to/41001937179526)  
+![QR Code for Donations](docs/qr.png)
 
-![QR Code for Donations](qr.png)
-
-[def]: yt-dlp-gui-portable-v2.0.3.gif
+[def]: docs/demo.png

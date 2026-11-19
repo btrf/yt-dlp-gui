@@ -363,8 +363,10 @@ code {
   text-align: center;
 }
 
-.demo__gif {
+.demo__image {
   margin: 0 auto;
+  max-width: 100%;
+  height: auto;
   border-radius: var(--radius);
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
