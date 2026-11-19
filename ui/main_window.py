@@ -6,7 +6,7 @@ import os
 import re
 import sys
 
-from PyQt6.QtCore import QEvent, QProcess, QSettings, QSize, Qt, QTimer, QUrl
+from PyQt6.QtCore import QEvent, QProcess, QSettings, QSize, QTimer, QUrl
 from PyQt6.QtGui import QAction, QActionGroup, QDesktopServices, QIcon
 from PyQt6.QtWidgets import (
     QApplication,
