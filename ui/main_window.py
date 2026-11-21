@@ -7,7 +7,7 @@ import re
 import sys
 
 from PyQt6.QtCore import QEvent, QProcess, QSettings, QSize, QTimer, QUrl
-from PyQt6.QtGui import QAction, QActionGroup, QDesktopServices, QIcon
+from PyQt6.QtGui import QAction, QActionGroup, QDesktopServices, QIcon, QKeySequence
 from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -54,6 +54,7 @@ PROJECT_URL = "https://github.com/btrf/yt-dlp-gui"
 COOKIE_BROWSERS = ("chrome", "edge", "firefox", "brave", "opera", "vivaldi", "safari")
 
 URL_PREFIXES = ("http://", "https://")
+MAX_RECENT_URLS = 10
 
 
 def read_url_file(path: str) -> list[str]:
@@ -98,12 +99,14 @@ class MainWindow(QMainWindow):
         self._interactive = interactive
 
         self.url_list: list[str] = []
+        self._recent_entries: list[dict[str, str]] = []
         self._batch_queue: list[str] = []
         self._batch_results: list[BatchResult] = []
         self._batch_total = 0
         self._batch_current = 0
         self._batch_active = False
         self._current_url = ""
+        self._current_title = ""
         self._item_percent = 0.0
         self._download_active = False
         self._loading = False
@@ -124,6 +127,7 @@ class MainWindow(QMainWindow):
         self.runner = DownloadRunner(file_log, self)
         self.runner.progress.connect(self._on_progress)
         self.runner.log.connect(self._append_log)
+        self.runner.title.connect(self._on_video_title)
         self.runner.finished.connect(self._on_finished)
 
         self._version_process: QProcess | None = None
@@ -320,21 +324,37 @@ class MainWindow(QMainWindow):
 
     def _build_menus(self) -> None:
         menu_bar = self.menuBar()
+
+        # File: the actions a user needs around a download, most frequent first.
+        self.file_menu = menu_bar.addMenu("")
+        self.recent_menu = self.file_menu.addMenu("")
+        self.recent_menu.aboutToShow.connect(self._rebuild_recent_menu)
+
+        self.load_links_action = self.file_menu.addAction("")
+        self.load_links_action.setShortcut(QKeySequence("Ctrl+O"))
+        self.load_links_action.triggered.connect(self.load_links_from_file)
+
+        self.file_menu.addSeparator()
+        self.open_folder_action = self.file_menu.addAction("")
+        self.open_folder_action.setShortcut(QKeySequence("Ctrl+Shift+O"))
+        self.open_folder_action.triggered.connect(self.open_download_folder)
+
+        self.file_menu.addSeparator()
+        self.quit_action = self.file_menu.addAction("")
+        self.quit_action.setShortcut(QKeySequence("Ctrl+Q"))
+        self.quit_action.triggered.connect(self.close)
+
+        # Tools: maintenance actions and the language switch.
         self.tools_menu = menu_bar.addMenu("")
         self.update_action = self.tools_menu.addAction("")
+        self.update_action.setShortcut(QKeySequence("Ctrl+U"))
         self.update_action.triggered.connect(self.update_ytdlp)
-        self.open_folder_action = self.tools_menu.addAction("")
-        self.open_folder_action.triggered.connect(self.open_download_folder)
         self.open_log_action = self.tools_menu.addAction("")
+        self.open_log_action.setShortcut(QKeySequence("Ctrl+Shift+L"))
         self.open_log_action.triggered.connect(self.open_log_file)
 
-        self.help_menu = menu_bar.addMenu("")
-        self.templates_action = self.help_menu.addAction("")
-        self.templates_action.triggered.connect(self.show_template_help)
-        self.about_action = self.help_menu.addAction("")
-        self.about_action.triggered.connect(self.show_about)
-
-        self.language_menu = menu_bar.addMenu("")
+        self.tools_menu.addSeparator()
+        self.language_menu = self.tools_menu.addMenu("")
         self.language_group = QActionGroup(self)
         self.language_group.setExclusive(True)
         self.language_en_action = QAction("", self)
@@ -345,6 +365,73 @@ class MainWindow(QMainWindow):
             self.language_menu.addAction(action)
         self.language_en_action.triggered.connect(lambda: self.set_language("en"))
         self.language_ru_action.triggered.connect(lambda: self.set_language("ru"))
+
+        # Help: reference material and About.
+        self.help_menu = menu_bar.addMenu("")
+        self.templates_action = self.help_menu.addAction("")
+        self.templates_action.setShortcut(QKeySequence("F1"))
+        self.templates_action.triggered.connect(self.show_template_help)
+        self.help_menu.addSeparator()
+        self.about_action = self.help_menu.addAction("")
+        self.about_action.triggered.connect(self.show_about)
+
+    # --------------------------------------------------------------- recent
+    def _rebuild_recent_menu(self) -> None:
+        self.recent_menu.clear()
+        if not self._recent_entries:
+            empty_action = self.recent_menu.addAction(self.i18n.t("menu_recent_empty"))
+            empty_action.setEnabled(False)
+            return
+        for entry in self._recent_entries:
+            url = entry["url"]
+            title = entry.get("title", "")
+            label = _elide_title(title) if title else _elide_url(url)
+            action = self.recent_menu.addAction(label)
+            action.setToolTip(url)
+            action.triggered.connect(lambda _checked=False, value=url: self._use_recent_url(value))
+        self.recent_menu.addSeparator()
+        clear_action = self.recent_menu.addAction(self.i18n.t("menu_recent_clear"))
+        clear_action.triggered.connect(self.clear_recent_urls)
+
+    def _use_recent_url(self, url: str) -> None:
+        self.url_entry.setText(url)
+        self.url_entry.setFocus()
+
+    def clear_recent_urls(self) -> None:
+        self._recent_entries = []
+        self.settings.setValue("recent/urls", [])
+        self.settings.sync()
+
+    def _remember_url(self, url: str, title: str = "") -> None:
+        url = url.strip()
+        if not url:
+            return
+        previous = next((entry for entry in self._recent_entries if entry["url"] == url), None)
+        if not title and previous is not None:
+            # Keep the title we already know when a retry starts without one.
+            title = previous.get("title", "")
+        entries = [entry for entry in self._recent_entries if entry["url"] != url]
+        entries.insert(0, {"url": url, "title": title.strip()})
+        self._recent_entries = entries[:MAX_RECENT_URLS]
+        self.settings.setValue("recent/urls", self._recent_entries)
+        self.settings.sync()
+
+    def _on_video_title(self, title: str) -> None:
+        title = title.strip()
+        if not title or not self._current_url or self._current_title:
+            return
+        self._current_title = title
+        self._update_recent_title(self._current_url, title)
+
+    def _update_recent_title(self, url: str, title: str) -> None:
+        for entry in self._recent_entries:
+            if entry["url"] == url:
+                if entry.get("title") == title:
+                    return
+                entry["title"] = title
+                self.settings.setValue("recent/urls", self._recent_entries)
+                self.settings.sync()
+                return
 
     def _retranslate(self) -> None:
         t = self.i18n.t
@@ -395,14 +482,18 @@ class MainWindow(QMainWindow):
         self.update_btn.setText(t("btn_update"))
         self.quit_btn.setText(t("btn_quit"))
 
-        self.tools_menu.setTitle(t("menu_tools"))
-        self.update_action.setText(t("menu_update"))
+        self.file_menu.setTitle(t("menu_file"))
+        self.load_links_action.setText(t("menu_load_links"))
         self.open_folder_action.setText(t("menu_open_folder"))
         self.open_log_action.setText(t("menu_open_log"))
+        self.recent_menu.setTitle(t("menu_recent"))
+        self.quit_action.setText(t("menu_exit"))
+        self.tools_menu.setTitle(t("menu_tools"))
+        self.update_action.setText(t("menu_update"))
+        self.language_menu.setTitle(t("menu_language"))
         self.help_menu.setTitle(t("menu_help"))
         self.templates_action.setText(t("menu_templates"))
         self.about_action.setText(t("menu_about"))
-        self.language_menu.setTitle(t("menu_language"))
         self.language_en_action.setText(t("lang_en"))
         self.language_ru_action.setText(t("lang_ru"))
         self.language_en_action.setChecked(self.i18n.language == "en")
@@ -500,6 +591,8 @@ class MainWindow(QMainWindow):
                     "quality": stored_quality,
                     "format": normalize_format(key, stored_format),
                 }
+
+            self._recent_entries = _as_recent_entries(settings.value("recent/urls"))
 
             self._fill_quality_combo(preserve=False)
             self._fill_format_combo(preserve=False)
@@ -637,7 +730,14 @@ class MainWindow(QMainWindow):
         QDesktopServices.openUrl(QUrl.fromLocalFile(self.file_log.path))
 
     def show_about(self) -> None:
-        AboutDialog(self, self.i18n, self.version, PROJECT_URL).exec()
+        resource_dir = getattr(sys, "_MEIPASS", self.config.launch_dir)
+        AboutDialog(
+            self,
+            self.i18n,
+            self.version,
+            PROJECT_URL,
+            license_path=os.path.join(resource_dir, "LICENSE"),
+        ).exec()
 
     def show_template_help(self) -> None:
         dialog = TemplateHelpDialog(
@@ -724,6 +824,10 @@ class MainWindow(QMainWindow):
 
         self._append_log(" ".join(_quote(part) for part in command))
         self._current_url = url
+        self._current_title = ""
+        # The recent list tracks every attempted download, not just the
+        # successful ones, so the URL is remembered before yt-dlp starts.
+        self._remember_url(url)
         self._item_percent = 0.0
         self._download_active = True
         self._set_running(True)
@@ -763,6 +867,8 @@ class MainWindow(QMainWindow):
         self.cancel_btn.setEnabled(running)
         self.load_links_btn.setEnabled(not running)
         self.update_btn.setEnabled(not running and self._ytdlp_ok)
+        self.load_links_action.setEnabled(not running)
+        self.update_action.setEnabled(not running and self._ytdlp_ok)
         for group in (self.source_group, self.playlist_group, self.options_group):
             group.setEnabled(not running)
 
@@ -1060,6 +1166,7 @@ class MainWindow(QMainWindow):
         self._update_process = process
         self._update_buffer = b""
         self.update_btn.setEnabled(False)
+        self.update_action.setEnabled(False)
         self._append_log(self.i18n.t("update_started"))
         self._set_status(self.i18n.t("update_started"), "blue")
         process.start(self.config.yt_dlp_path, ["-U"])
@@ -1082,6 +1189,7 @@ class MainWindow(QMainWindow):
         process.deleteLater()
         self._update_process = None
         self.update_btn.setEnabled(self._ytdlp_ok)
+        self.update_action.setEnabled(self._ytdlp_ok)
         if self._download_active:
             return
         self._set_status(self.i18n.t("label_ready"), "blue")
@@ -1111,6 +1219,7 @@ class MainWindow(QMainWindow):
         self._ytdlp_ok = not ytdlp_missing
         self.download_btn.setEnabled(self._ytdlp_ok)
         self.update_btn.setEnabled(self._ytdlp_ok)
+        self.update_action.setEnabled(self._ytdlp_ok)
         if not messages:
             return
         for message in messages:
@@ -1177,6 +1286,47 @@ def _as_bool(value: object) -> bool:
     if isinstance(value, bool):
         return value
     return str(value).strip().lower() in ("1", "true", "yes", "on")
+
+
+def _as_recent_entries(value: object) -> list[dict[str, str]]:
+    """Normalize persisted recent downloads, including the old URL-only list."""
+    if isinstance(value, str):
+        values = [value]
+    elif isinstance(value, (list, tuple)):
+        values = list(value)
+    else:
+        values = []
+
+    entries: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for item in values:
+        if isinstance(item, dict):
+            url = str(item.get("url") or "").strip()
+            title = str(item.get("title") or "").strip()
+        else:
+            url = str(item).strip()
+            title = ""
+        if url and url not in seen:
+            seen.add(url)
+            entries.append({"url": url, "title": title})
+    return entries[:MAX_RECENT_URLS]
+
+
+def _elide_url(url: str, limit: int = 70) -> str:
+    """Shorten a URL for a menu label while keeping both ends readable."""
+    if len(url) <= limit:
+        return url
+    head = (limit - 1) // 2
+    tail = limit - 1 - head
+    return f"{url[:head]}…{url[-tail:]}"
+
+
+def _elide_title(title: str, limit: int = 70) -> str:
+    """Shorten a title for a menu label, keeping the beginning readable."""
+    title = title.strip()
+    if len(title) <= limit:
+        return title
+    return title[: limit - 1].rstrip() + "…"
 
 
 def _quote(part: str) -> str:

@@ -1,8 +1,8 @@
 # UTF-8
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(3, 0, 3, 0),
-    prodvers=(3, 0, 3, 0),
+    filevers=(3, 1, 0, 0),
+    prodvers=(3, 1, 0, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -16,13 +16,13 @@ VSVersionInfo(
         StringTable(
           '040904B0',
           [StringStruct('CompanyName', 'btrf'),
-           StringStruct('FileDescription', 'yt-dlp GUI - Portable Download Manager'),
-           StringStruct('FileVersion', '3.0.3'),
+           StringStruct('FileDescription', 'Portable Download Manager'),
+           StringStruct('FileVersion', '3.1.0'),
            StringStruct('InternalName', 'yt-dlp-gui'),
            StringStruct('LegalCopyright', 'MIT License'),
-           StringStruct('OriginalFilename', 'yt-dlp-gui-portable-v3.0.3.exe'),
-           StringStruct('ProductName', 'yt-dlp GUI'),
-           StringStruct('ProductVersion', '3.0.3')])
+           StringStruct('OriginalFilename', 'yt-dlp-gui-portable-v3.1.0.exe'),
+           StringStruct('ProductName', 'Portable Download Manager'),
+           StringStruct('ProductVersion', '3.1.0')])
       ]),
     VarFileInfo([VarStruct('Translation', [1033, 1200])])
   ]

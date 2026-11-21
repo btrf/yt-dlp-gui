@@ -12,7 +12,7 @@ import locale
 import re
 from dataclasses import dataclass
 
-from .command_builder import PROGRESS_MARKER
+from .command_builder import PROGRESS_MARKER, TITLE_SEPARATOR
 
 # Encoding Python uses for redirected stdio on this machine (cp1251 on Russian
 # Windows). Used only as a fallback when a line is not valid UTF-8.
@@ -56,6 +56,7 @@ class ProgressUpdate:
     eta: str = ""
     total: str = ""
     filename: str = ""
+    title: str = ""
     stage: str = ""
 
 
@@ -164,6 +165,12 @@ def parse_progress_line(line: str) -> ProgressUpdate | None:
 
 
 def _parse_progress_json(payload: str) -> ProgressUpdate | None:
+    title = ""
+    if TITLE_SEPARATOR in payload:
+        title, payload = payload.split(TITLE_SEPARATOR, 1)
+        title = title.strip()
+        if title == "NA":  # yt-dlp's placeholder for a missing field
+            title = ""
     try:
         data = json.loads(payload)
     except ValueError:
@@ -203,5 +210,6 @@ def _parse_progress_json(payload: str) -> ProgressUpdate | None:
         eta=format_eta(progress.get("eta")),
         total=format_bytes(total_bytes),
         filename=str(progress.get("filename") or progress.get("tmpfilename") or ""),
+        title=title,
         stage=stage,
     )

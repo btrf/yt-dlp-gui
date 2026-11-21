@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
     QApplication,
     QDialog,
@@ -18,6 +20,9 @@ from PyQt6.QtWidgets import (
 )
 
 from ui.i18n import I18n
+
+APP_NAME = "Portable Download Manager"
+LICENSE_FALLBACK_PATH = "blob/main/LICENSE"
 
 # Most common and useful yt-dlp output templates. The second element is a
 # translation key describing when the template is handy.
@@ -35,29 +40,68 @@ TEMPLATE_PRESETS: tuple[tuple[str, str], ...] = (
 
 
 class AboutDialog(QDialog):
-    def __init__(self, parent, i18n: I18n, version: str, project_url: str) -> None:
+    """Compact product card: name, version, project links and license."""
+
+    def __init__(
+        self,
+        parent,
+        i18n: I18n,
+        version: str,
+        project_url: str,
+        license_path: str = "",
+    ) -> None:
         super().__init__(parent)
-        self.setWindowTitle(i18n.t("menu_about"))
-        self.setFixedWidth(460)
+        self.project_url = project_url
+        self.license_path = license_path
+        self.setWindowTitle(i18n.t("about_title"))
+        self.setMinimumWidth(460)
+        self.setSizeGripEnabled(True)
+
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 22, 24, 18)
+        layout.setSpacing(14)
 
-        title = QLabel(f"<b>yt-dlp GUI {version}</b>")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(title)
+        self.name_label = QLabel(APP_NAME)
+        self.name_label.setStyleSheet("font-size: 15pt; font-weight: 600;")
+        layout.addWidget(self.name_label)
+        self.version_label = QLabel(i18n.t("about_version", version=version))
+        self.version_label.setStyleSheet("color: palette(mid);")
+        layout.addWidget(self.version_label)
 
-        description = QLabel(i18n.t("about_description"))
-        description.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(description)
+        self.description_label = QLabel(i18n.t("about_description"))
+        self.description_label.setWordWrap(True)
+        self.description_label.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
+        layout.addWidget(self.description_label)
 
-        link = QLabel(f'<a href="{project_url}">{project_url}</a>')
-        link.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        link.setOpenExternalLinks(True)
-        link.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
-        layout.addWidget(link)
+        buttons = QHBoxLayout()
+        self.project_button = QPushButton(i18n.t("about_project"))
+        self.project_button.setAutoDefault(False)
+        self.project_button.clicked.connect(self.open_project)
+        self.license_button = QPushButton(i18n.t("about_license"))
+        self.license_button.setAutoDefault(False)
+        self.license_button.clicked.connect(self.open_license)
+        self.close_button = QPushButton(i18n.t("btn_close"))
+        self.close_button.setDefault(True)
+        self.close_button.clicked.connect(self.accept)
+        buttons.addWidget(self.project_button)
+        buttons.addWidget(self.license_button)
+        buttons.addStretch(1)
+        buttons.addWidget(self.close_button)
+        layout.addLayout(buttons)
 
-        close_button = QPushButton(i18n.t("btn_close"))
-        close_button.clicked.connect(self.accept)
-        layout.addWidget(close_button)
+    def license_target(self) -> str:
+        """Local license file when bundled, otherwise the project's copy online."""
+        if self.license_path and os.path.isfile(self.license_path):
+            return QUrl.fromLocalFile(self.license_path).toString()
+        return f"{self.project_url.rstrip('/')}/{LICENSE_FALLBACK_PATH}"
+
+    def open_project(self) -> None:
+        QDesktopServices.openUrl(QUrl(self.project_url))
+
+    def open_license(self) -> None:
+        QDesktopServices.openUrl(QUrl(self.license_target()))
 
 
 class TemplateHelpDialog(QDialog):

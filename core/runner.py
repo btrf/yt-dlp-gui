@@ -12,6 +12,7 @@ import sys
 
 from PyQt6.QtCore import QObject, QProcess, QTimer, pyqtSignal
 
+from .command_builder import PROGRESS_MARKER
 from .file_log import FileLog
 from .progress import ProgressUpdate, decode_line, parse_progress_line, split_lines
 
@@ -41,6 +42,7 @@ class DownloadRunner(QObject):
 
     progress = pyqtSignal(object)  # ProgressUpdate
     log = pyqtSignal(str)  # one or more lines, already decoded
+    title = pyqtSignal(str)  # video title, emitted once per download
     finished = pyqtSignal(int, bool)  # exit code, cancelled
 
     FLUSH_INTERVAL_MS = 100
@@ -57,6 +59,7 @@ class DownloadRunner(QObject):
         self._pending_log: list[str] = []
         self._pending_progress: ProgressUpdate | None = None
         self._last_filename = ""
+        self._last_title = ""
         self._cancelled = False
         self._finished = True
 
@@ -119,6 +122,7 @@ class DownloadRunner(QObject):
         self._pending_log = []
         self._pending_progress = None
         self._last_filename = ""
+        self._last_title = ""
         self._cancelled = False
         self._finished = False
         self._kill_timer.stop()
@@ -139,13 +143,20 @@ class DownloadRunner(QObject):
         line = line.rstrip()
         if not line:
             return
-        self._pending_log.append(line)
+        # Machine-readable progress lines carry the file name as JSON with
+        # \uXXXX escapes. They are still written to the log file for
+        # diagnostics, but kept out of the human-readable UI log.
+        if not line.startswith(PROGRESS_MARKER):
+            self._pending_log.append(line)
         if self._file_log is not None:
             self._file_log.write(line)
 
         update = parse_progress_line(line)
         if update is None:
             return
+        if update.title and update.title != self._last_title:
+            self._last_title = update.title
+            self.title.emit(update.title)
         if update.filename:
             self._last_filename = update.filename
         elif self._last_filename:

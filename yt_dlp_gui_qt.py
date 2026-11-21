@@ -83,7 +83,7 @@ def main() -> int:
 
     if sys.platform == "win32":
         try:
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("btrf.yt-dlp-gui")
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Download Manager")
         except (AttributeError, OSError):
             pass
 

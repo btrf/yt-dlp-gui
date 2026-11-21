@@ -20,6 +20,7 @@ A portable Windows desktop wrapper for [yt-dlp](https://github.com/yt-dlp/yt-dlp
 - Portable: settings and download path live next to the executable
 - Russian and English interface (switches on the fly)
 - Live progress, speed and ETA, rotating log file, desktop notifications
+- Recent downloads submenu: the last ten attempted videos by title, one click to reuse
 - Drag and drop links or a link file onto the window
 
 ## Installation

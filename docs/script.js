@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    var APP_VERSION = '3.0.3';
+    var APP_VERSION = '3.1.0';
     var LANG_STORAGE_KEY = 'yt-dlp-gui-lang';
     var DEFAULT_LANG = 'ru';
     var SUPPORTED_LANGS = ['ru', 'en'];

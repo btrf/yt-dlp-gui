@@ -1,6 +1,6 @@
 import json
 
-from core.command_builder import PROGRESS_MARKER
+from core.command_builder import PROGRESS_MARKER, TITLE_SEPARATOR
 from core.progress import (
     decode_line,
     format_bytes,
@@ -52,6 +52,25 @@ def test_json_progress_uses_estimate_and_percent_string():
 
 def test_broken_json_is_ignored():
     assert parse_progress_line(PROGRESS_MARKER + "{not json") is None
+
+
+def test_json_progress_carries_video_title():
+    payload = json.dumps(
+        {"status": "downloading", "downloaded_bytes": 1, "total_bytes": 2}
+    )
+    update = parse_progress_line(
+        f"{PROGRESS_MARKER}Тест видео{TITLE_SEPARATOR}{payload}"
+    )
+    assert update is not None
+    assert update.title == "Тест видео"
+    assert update.percent == 50.0
+
+
+def test_missing_title_placeholder_is_ignored():
+    payload = json.dumps({"status": "downloading", "downloaded_bytes": 1, "total_bytes": 2})
+    update = parse_progress_line(f"{PROGRESS_MARKER}NA{TITLE_SEPARATOR}{payload}")
+    assert update is not None
+    assert update.title == ""
 
 
 def test_plain_progress_line_is_parsed():

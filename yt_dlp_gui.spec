@@ -21,6 +21,8 @@ for name in ("yt-dlp.exe", "ffmpeg.exe", "ffprobe.exe"):
 datas = [
     (str(project_dir / "yt-dlp-gui.ico"), "."),
     (str(project_dir / "yt-dlp-gui.json"), "."),
+    # The About dialog opens this file, so it must survive the one-file build.
+    (str(project_dir / "LICENSE"), "."),
 ]
 
 # FFmpeg is bundled under the GPL, so ship its license text next to the binaries.

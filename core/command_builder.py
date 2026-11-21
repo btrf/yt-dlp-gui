@@ -17,9 +17,14 @@ DEFAULT_AUDIO_FORMAT = "mp3"
 DEFAULT_TEMPLATE = "%(upload_date)s - %(title)s.%(ext)s"
 
 # Prefixed to every progress line so the runner can tell machine-readable
-# progress apart from ordinary yt-dlp output.
+# progress apart from ordinary yt-dlp output. The video title is emitted in
+# front of the JSON payload, separated by a unit separator (U+001F), which is
+# practically impossible to find in a real title.
 PROGRESS_MARKER = "__YTDLP_PROGRESS__"
-PROGRESS_TEMPLATE = f"download:{PROGRESS_MARKER}%(progress)j"
+TITLE_SEPARATOR = "\x1f"
+PROGRESS_TEMPLATE = (
+    f"download:{PROGRESS_MARKER}%(info.title)s{TITLE_SEPARATOR}%(progress)j"
+)
 
 # Quality preset -> yt-dlp ``-S`` (format sorting) expression.
 # Using ``-S`` instead of hand-written ``-f`` strings keeps audio and video
