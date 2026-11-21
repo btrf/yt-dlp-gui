@@ -33,7 +33,9 @@ def test_runner_streams_output_and_finishes():
     timeout.setSingleShot(True)
     timeout.timeout.connect(loop.quit)
 
-    assert runner.start([sys.executable, "-c", script])
+    # The fake yt-dlp prints Cyrillic; force UTF-8 so the child process does
+    # not fail with UnicodeEncodeError on runners using a legacy code page.
+    assert runner.start([sys.executable, "-X", "utf8", "-c", script])
     timeout.start(20000)
     loop.exec()
 
