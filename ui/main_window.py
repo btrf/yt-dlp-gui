@@ -2,29 +2,47 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import sys
+import time
 
-from PyQt6.QtCore import QEvent, QProcess, QSettings, QSize, QTimer, QUrl
-from PyQt6.QtGui import QAction, QActionGroup, QDesktopServices, QIcon, QKeySequence
+from PyQt6.QtCore import QEvent, QProcess, QSettings, QSize, Qt, QTimer, QUrl
+from PyQt6.QtGui import (
+    QAction,
+    QActionGroup,
+    QDesktopServices,
+    QIcon,
+    QKeySequence,
+    QShortcut,
+)
 from PyQt6.QtWidgets import (
+    QAbstractItemView,
     QApplication,
     QCheckBox,
     QComboBox,
     QFileDialog,
+    QFrame,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
     QSizePolicy,
+    QSplitter,
+    QStyle,
     QSystemTrayIcon,
+    QTabWidget,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -46,15 +64,27 @@ from core.config import AppConfig, is_writable_dir, save_config
 from core.file_log import FileLog
 from core.progress import ProgressUpdate, decode_line, split_lines
 from core.runner import DownloadRunner, hide_console_window
-from ui.dialogs import AboutDialog, BatchResult, BatchSummaryDialog, TemplateHelpDialog
+from ui.dialogs import (
+    AboutDialog,
+    BatchResult,
+    BatchSummaryDialog,
+    HistoryDialog,
+    SettingsDialog,
+    TemplateHelpDialog,
+)
 from ui.i18n import I18n
-from ui.theme import make_primary_button
+from ui.theme import THEME_SYSTEM, apply_theme, make_primary_button
 
 PROJECT_URL = "https://github.com/btrf/yt-dlp-gui"
+ISSUES_URL = f"{PROJECT_URL}/issues"
+RELEASES_URL = f"{PROJECT_URL}/releases/latest"
+DOCS_URL = f"{PROJECT_URL}#readme"
+SUPPORT_URL = "https://yoomoney.ru/to/41001937179526"
 COOKIE_BROWSERS = ("chrome", "edge", "firefox", "brave", "opera", "vivaldi", "safari")
 
 URL_PREFIXES = ("http://", "https://")
 MAX_RECENT_URLS = 10
+MAX_HISTORY_ITEMS = 100
 
 
 def read_url_file(path: str) -> list[str]:
@@ -110,7 +140,14 @@ class MainWindow(QMainWindow):
         self._item_percent = 0.0
         self._download_active = False
         self._loading = False
+        self._log_height = 150
         self._ytdlp_ok = True
+        self._last_output_file = ""
+        self._history: list[dict] = []
+        self._theme = THEME_SYSTEM
+        self._minimize_to_tray = False
+        self._always_on_top = False
+        self._quitting = False
         self._current_type = "video"
         self._format_state: dict[str, dict[str, str]] = {
             "video": {"quality": DEFAULT_VIDEO_QUALITY, "format": DEFAULT_VIDEO_FORMAT},
@@ -152,6 +189,13 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
         layout = QVBoxLayout(central)
 
+        # Everything above the log lives in its own panel so a splitter can
+        # give the log a compact, user-resizable share of the window.
+        settings_panel = QWidget()
+        settings_layout = QVBoxLayout(settings_panel)
+        settings_layout.setContentsMargins(0, 0, 0, 0)
+        settings_layout.setSpacing(10)
+
         self.source_group = QGroupBox()
         source_layout = QGridLayout(self.source_group)
 
@@ -177,7 +221,36 @@ class MainWindow(QMainWindow):
         path_buttons.addWidget(self.open_folder_btn)
         path_buttons.addStretch(1)
         source_layout.addLayout(path_buttons, 1, 2)
-        layout.addWidget(self.source_group)
+        settings_layout.addWidget(self.source_group)
+
+        self.env_banner = QFrame()
+        self.env_banner.setObjectName("envBanner")
+        env_layout = QVBoxLayout(self.env_banner)
+        env_layout.setContentsMargins(12, 8, 12, 8)
+        env_layout.setSpacing(6)
+        self.env_title = QLabel()
+        self.env_title.setObjectName("envBannerTitle")
+        self.env_text = QLabel()
+        self.env_text.setObjectName("envBannerText")
+        self.env_text.setWordWrap(True)
+        self.env_text.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        env_layout.addWidget(self.env_title)
+        env_layout.addWidget(self.env_text)
+        env_buttons = QHBoxLayout()
+        self.env_download_btn = QPushButton()
+        self.env_download_btn.clicked.connect(self.download_ytdlp)
+        self.env_open_btn = QPushButton()
+        self.env_open_btn.clicked.connect(self.open_env_folder)
+        self.env_retry_btn = QPushButton()
+        self.env_retry_btn.clicked.connect(self._validate_environment)
+        env_buttons.addWidget(self.env_download_btn)
+        env_buttons.addWidget(self.env_open_btn)
+        env_buttons.addStretch(1)
+        env_buttons.addWidget(self.env_retry_btn)
+        env_layout.addLayout(env_buttons)
+        self.env_banner.setVisible(False)
+        self._env_folder_target = self.config.launch_dir
+        settings_layout.addWidget(self.env_banner)
 
         self.playlist_group = QGroupBox()
         playlist_layout = QHBoxLayout(self.playlist_group)
@@ -196,12 +269,19 @@ class MainWindow(QMainWindow):
         self.playlist_spec_edit.setVisible(False)
         playlist_layout.addWidget(self.playlist_spec_edit)
         playlist_layout.addStretch(1)
-        layout.addWidget(self.playlist_group)
+        settings_layout.addWidget(self.playlist_group)
 
         self.options_group = QGroupBox()
         options_layout = QVBoxLayout(self.options_group)
 
         first_row = QHBoxLayout()
+        self.label_preset = QLabel()
+        self.preset_combo = QComboBox()
+        self.preset_combo.setMinimumWidth(170)
+        self.preset_combo.currentIndexChanged.connect(self._on_preset_changed)
+        first_row.addWidget(self.label_preset)
+        first_row.addWidget(self.preset_combo)
+        first_row.addSpacing(12)
         self.label_type = QLabel()
         self.download_type = QComboBox()
         self.download_type.setMinimumWidth(90)
@@ -222,8 +302,24 @@ class MainWindow(QMainWindow):
         self.format_combo.currentIndexChanged.connect(self._on_format_changed)
         first_row.addWidget(self.label_format)
         first_row.addWidget(self.format_combo)
+        first_row.addSpacing(12)
+        self.remove_ads_check = QCheckBox()
+        self.remove_ads_check.setChecked(True)
+        self.remove_ads_check.toggled.connect(self._persist_settings)
+        first_row.addWidget(self.remove_ads_check)
         first_row.addStretch(1)
+        self.advanced_btn = QToolButton()
+        self.advanced_btn.setCheckable(True)
+        self.advanced_btn.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.advanced_btn.setArrowType(Qt.ArrowType.RightArrow)
+        self.advanced_btn.toggled.connect(self._toggle_advanced)
+        first_row.addWidget(self.advanced_btn)
         options_layout.addLayout(first_row)
+
+        self.advanced_panel = QWidget()
+        advanced_layout = QVBoxLayout(self.advanced_panel)
+        advanced_layout.setContentsMargins(0, 0, 0, 0)
+        advanced_layout.setSpacing(8)
 
         second_row = QHBoxLayout()
         self.label_filename = QLabel()
@@ -237,7 +333,7 @@ class MainWindow(QMainWindow):
         self.options_entry.setMinimumWidth(150)
         second_row.addWidget(self.label_extra)
         second_row.addWidget(self.options_entry, 1)
-        options_layout.addLayout(second_row)
+        advanced_layout.addLayout(second_row)
 
         third_row = QHBoxLayout()
         self.label_cookies = QLabel()
@@ -253,13 +349,11 @@ class MainWindow(QMainWindow):
         self.archive_check = QCheckBox()
         self.archive_check.toggled.connect(self._persist_settings)
         third_row.addWidget(self.archive_check)
-        self.remove_ads_check = QCheckBox()
-        self.remove_ads_check.setChecked(True)
-        self.remove_ads_check.toggled.connect(self._persist_settings)
-        third_row.addWidget(self.remove_ads_check)
         third_row.addStretch(1)
-        options_layout.addLayout(third_row)
-        layout.addWidget(self.options_group)
+        advanced_layout.addLayout(third_row)
+        self.advanced_panel.setVisible(False)
+        options_layout.addWidget(self.advanced_panel)
+        settings_layout.addWidget(self.options_group)
 
         self.status_group = QGroupBox()
         status_layout = QVBoxLayout(self.status_group)
@@ -271,22 +365,32 @@ class MainWindow(QMainWindow):
         status_row.addWidget(self.progress_bar, 1)
         status_row.addWidget(self.status_label)
         status_layout.addLayout(status_row)
-        batch_row = QHBoxLayout()
-        self.batch_progress_bar = QProgressBar()
-        self.batch_progress_bar.setRange(0, 100)
-        self.batch_progress_bar.setVisible(False)
+        detail_row = QHBoxLayout()
+        self.progress_detail_label = QLabel()
+        self.progress_detail_label.setSizePolicy(
+            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred
+        )
+        self.progress_detail_label.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+        )
         self.ytdlp_version_label = QLabel()
-        self.ytdlp_version_label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred)
-        batch_row.addWidget(self.batch_progress_bar, 1)
-        batch_row.addWidget(self.ytdlp_version_label)
-        status_layout.addLayout(batch_row)
-        layout.addWidget(self.status_group)
+        self.ytdlp_version_label.setSizePolicy(
+            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Preferred
+        )
+        detail_row.addWidget(self.progress_detail_label, 1)
+        detail_row.addWidget(self.ytdlp_version_label)
+        status_layout.addLayout(detail_row)
+        settings_layout.addWidget(self.status_group)
+        settings_layout.addStretch(1)
 
-        self.log_group = QGroupBox()
+        self.log_group = QWidget()
         log_layout = QVBoxLayout(self.log_group)
+        log_layout.setContentsMargins(0, 0, 0, 0)
         self.log_text = QPlainTextEdit()
         self.log_text.setReadOnly(True)
         self.log_text.setMaximumBlockCount(5000)
+        self.log_text.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.log_text.customContextMenuRequested.connect(self._show_log_menu)
         log_layout.addWidget(self.log_text, 1)
         log_buttons = QHBoxLayout()
         self.clear_log_btn = QPushButton()
@@ -297,27 +401,71 @@ class MainWindow(QMainWindow):
         log_buttons.addWidget(self.open_log_btn)
         log_buttons.addStretch(1)
         log_layout.addLayout(log_buttons)
-        layout.addWidget(self.log_group, 1)
+
+        self.queue_group = QWidget()
+        queue_layout = QVBoxLayout(self.queue_group)
+        queue_layout.setContentsMargins(0, 0, 0, 0)
+        self.queue_list = QListWidget()
+        self.queue_list.setSelectionMode(
+            QAbstractItemView.SelectionMode.ExtendedSelection
+        )
+        self.queue_list.setAlternatingRowColors(True)
+        queue_layout.addWidget(self.queue_list, 1)
+        queue_buttons = QHBoxLayout()
+        self.queue_add_btn = QPushButton()
+        self.queue_add_btn.clicked.connect(self.add_current_url_to_queue)
+        self.queue_remove_btn = QPushButton()
+        self.queue_remove_btn.clicked.connect(self.remove_selected_queue_items)
+        self.queue_clear_btn = QPushButton()
+        self.queue_clear_btn.clicked.connect(self.clear_queue)
+        self.queue_start_btn = QPushButton()
+        self.queue_start_btn.clicked.connect(self.start_queue)
+        queue_buttons.addWidget(self.queue_add_btn)
+        queue_buttons.addWidget(self.queue_remove_btn)
+        queue_buttons.addWidget(self.queue_clear_btn)
+        queue_buttons.addStretch(1)
+        queue_buttons.addWidget(self.queue_start_btn)
+        queue_layout.addLayout(queue_buttons)
+
+        self.bottom_tabs = QTabWidget()
+        self.bottom_tabs.addTab(self.log_group, "")
+        self.bottom_tabs.addTab(self.queue_group, "")
+
+        self.main_splitter = QSplitter(Qt.Orientation.Vertical)
+        self.main_splitter.setChildrenCollapsible(False)
+        self.main_splitter.addWidget(settings_panel)
+        self.main_splitter.addWidget(self.bottom_tabs)
+        self.main_splitter.setStretchFactor(0, 1)
+        self.main_splitter.setStretchFactor(1, 0)
+        self.main_splitter.setSizes([520, 150])
+        layout.addWidget(self.main_splitter, 1)
 
         buttons = QHBoxLayout()
         self.download_btn = QPushButton()
+        self.download_btn.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowDown))
         make_primary_button(self.download_btn)
         self.download_btn.clicked.connect(self.try_start_download)
         self.cancel_btn = QPushButton()
+        self.cancel_btn.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_MediaStop))
         self.cancel_btn.setEnabled(False)
         self.cancel_btn.clicked.connect(self.cancel_download)
         self.load_links_btn = QPushButton()
         self.load_links_btn.clicked.connect(self.load_links_from_file)
-        self.update_btn = QPushButton()
-        self.update_btn.clicked.connect(self.update_ytdlp)
-        self.quit_btn = QPushButton()
-        self.quit_btn.clicked.connect(self.close)
+        self.open_file_btn = QPushButton()
+        self.open_file_btn.setIcon(
+            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton)
+        )
+        self.open_file_btn.clicked.connect(self.open_last_file)
+        self.open_file_btn.setVisible(False)
+        self.open_folder_result_btn = QPushButton()
+        self.open_folder_result_btn.clicked.connect(self.open_last_folder)
+        self.open_folder_result_btn.setVisible(False)
         buttons.addWidget(self.download_btn)
         buttons.addWidget(self.cancel_btn)
         buttons.addWidget(self.load_links_btn)
+        buttons.addWidget(self.open_file_btn)
+        buttons.addWidget(self.open_folder_result_btn)
         buttons.addStretch(1)
-        buttons.addWidget(self.update_btn)
-        buttons.addWidget(self.quit_btn)
         layout.addLayout(buttons)
 
         self._build_menus()
@@ -327,12 +475,20 @@ class MainWindow(QMainWindow):
 
         # File: the actions a user needs around a download, most frequent first.
         self.file_menu = menu_bar.addMenu("")
+        self.add_queue_action = self.file_menu.addAction("")
+        self.add_queue_action.setShortcut(QKeySequence("Ctrl+Shift+Q"))
+        self.add_queue_action.triggered.connect(self.add_current_url_to_queue)
+
         self.recent_menu = self.file_menu.addMenu("")
         self.recent_menu.aboutToShow.connect(self._rebuild_recent_menu)
 
         self.load_links_action = self.file_menu.addAction("")
         self.load_links_action.setShortcut(QKeySequence("Ctrl+O"))
         self.load_links_action.triggered.connect(self.load_links_from_file)
+
+        self.history_action = self.file_menu.addAction("")
+        self.history_action.setShortcut(QKeySequence("Ctrl+H"))
+        self.history_action.triggered.connect(self.show_history)
 
         self.file_menu.addSeparator()
         self.open_folder_action = self.file_menu.addAction("")
@@ -344,14 +500,67 @@ class MainWindow(QMainWindow):
         self.quit_action.setShortcut(QKeySequence("Ctrl+Q"))
         self.quit_action.triggered.connect(self.close)
 
+        # Edit: clipboard and log helpers.
+        self.edit_menu = menu_bar.addMenu("")
+        self.paste_action = self.edit_menu.addAction("")
+        self.paste_action.setShortcut(QKeySequence("Ctrl+Shift+V"))
+        self.paste_action.triggered.connect(self.paste_url_from_clipboard)
+        self.clear_url_action = self.edit_menu.addAction("")
+        self.clear_url_action.triggered.connect(self.url_entry.clear)
+        self.copy_log_action = self.edit_menu.addAction("")
+        self.copy_log_action.setShortcut(QKeySequence("Ctrl+Shift+C"))
+        self.copy_log_action.triggered.connect(self.copy_log_to_clipboard)
+        self.edit_menu.addSeparator()
+        self.settings_action = self.edit_menu.addAction("")
+        self.settings_action.setShortcut(QKeySequence("Ctrl+,"))
+        self.settings_action.triggered.connect(self.show_settings)
+
+        # View: window chrome that can be hidden without touching settings.
+        self.view_menu = menu_bar.addMenu("")
+        self.toggle_log_action = self.view_menu.addAction("")
+        self.toggle_log_action.setCheckable(True)
+        self.toggle_log_action.setChecked(True)
+        self.toggle_log_action.setShortcut(QKeySequence("Ctrl+L"))
+        self.toggle_log_action.toggled.connect(self._set_log_visible)
+
+        self.theme_menu = self.view_menu.addMenu("")
+        self.theme_group = QActionGroup(self)
+        self.theme_group.setExclusive(True)
+        self.theme_actions: dict[str, QAction] = {}
+        for key, label in (("system", "theme_system"), ("light", "theme_light"), ("dark", "theme_dark")):
+            action = QAction(label, self)
+            action.setCheckable(True)
+            action.setData(key)
+            self.theme_group.addAction(action)
+            self.theme_menu.addAction(action)
+            action.triggered.connect(lambda _checked=False, value=key: self._set_theme(value))
+            self.theme_actions[key] = action
+
+        self.view_menu.addSeparator()
+        self.always_on_top_action = self.view_menu.addAction("")
+        self.always_on_top_action.setCheckable(True)
+        self.always_on_top_action.toggled.connect(self._set_always_on_top)
+        self.minimize_to_tray_action = self.view_menu.addAction("")
+        self.minimize_to_tray_action.setCheckable(True)
+        self.minimize_to_tray_action.toggled.connect(self._set_minimize_to_tray)
+
         # Tools: maintenance actions and the language switch.
         self.tools_menu = menu_bar.addMenu("")
+        self.check_env_action = self.tools_menu.addAction("")
+        self.check_env_action.setShortcut(QKeySequence("F5"))
+        self.check_env_action.triggered.connect(self._validate_environment)
+        self.open_config_action = self.tools_menu.addAction("")
+        self.open_config_action.triggered.connect(self.open_config_folder)
+
+        self.tools_menu.addSeparator()
         self.update_action = self.tools_menu.addAction("")
         self.update_action.setShortcut(QKeySequence("Ctrl+U"))
         self.update_action.triggered.connect(self.update_ytdlp)
         self.open_log_action = self.tools_menu.addAction("")
         self.open_log_action.setShortcut(QKeySequence("Ctrl+Shift+L"))
         self.open_log_action.triggered.connect(self.open_log_file)
+        self.check_updates_action = self.tools_menu.addAction("")
+        self.check_updates_action.triggered.connect(self.check_updates)
 
         self.tools_menu.addSeparator()
         self.language_menu = self.tools_menu.addMenu("")
@@ -368,12 +577,42 @@ class MainWindow(QMainWindow):
 
         # Help: reference material and About.
         self.help_menu = menu_bar.addMenu("")
+        self.docs_action = self.help_menu.addAction("")
+        self.docs_action.triggered.connect(lambda: self._open_url(DOCS_URL))
+        self.issues_action = self.help_menu.addAction("")
+        self.issues_action.triggered.connect(lambda: self._open_url(ISSUES_URL))
+        self.support_action = self.help_menu.addAction("")
+        self.support_action.triggered.connect(lambda: self._open_url(SUPPORT_URL))
+        self.help_menu.addSeparator()
         self.templates_action = self.help_menu.addAction("")
         self.templates_action.setShortcut(QKeySequence("F1"))
         self.templates_action.triggered.connect(self.show_template_help)
         self.help_menu.addSeparator()
         self.about_action = self.help_menu.addAction("")
         self.about_action.triggered.connect(self.show_about)
+
+        # Keyboard-only shortcuts for the two most frequent actions.
+        self.download_shortcut = QShortcut(QKeySequence("Ctrl+Return"), self)
+        self.download_shortcut.activated.connect(self.try_start_download)
+        self.cancel_shortcut = QShortcut(QKeySequence("Esc"), self)
+        self.cancel_shortcut.activated.connect(self.cancel_download)
+
+    def _set_log_visible(self, visible: bool) -> None:
+        if self.toggle_log_action.isChecked() != visible:
+            self.toggle_log_action.blockSignals(True)
+            self.toggle_log_action.setChecked(visible)
+            self.toggle_log_action.blockSignals(False)
+        if visible:
+            self.bottom_tabs.setVisible(True)
+            sizes = self.main_splitter.sizes()
+            total = max(1, sizes[0] + sizes[1])
+            top = max(1, total - self._log_height)
+            self.main_splitter.setSizes([top, self._log_height])
+        else:
+            sizes = self.main_splitter.sizes()
+            if len(sizes) > 1 and sizes[1] > 0:
+                self._log_height = sizes[1]
+            self.bottom_tabs.setVisible(False)
 
     # --------------------------------------------------------------- recent
     def _rebuild_recent_menu(self) -> None:
@@ -452,10 +691,12 @@ class MainWindow(QMainWindow):
         self._fill_scope_combo()
 
         self.options_group.setTitle(t("group_options"))
+        self._fill_preset_combo()
         self._fill_type_combo()
         self._fill_quality_combo()
         self._fill_format_combo()
         self._fill_cookies_combo()
+        self.label_preset.setText(t("label_preset"))
         self.label_type.setText(t("label_type"))
         self.label_quality.setText(t("label_quality"))
         self.label_format.setText(t("label_format"))
@@ -471,27 +712,70 @@ class MainWindow(QMainWindow):
         self.archive_check.setToolTip(t("tip_archive"))
         self.remove_ads_check.setText(t("chk_remove_ads"))
         self.remove_ads_check.setToolTip(t("tip_remove_ads"))
+        self.advanced_btn.setText(t("btn_advanced"))
+        self._sync_preset_combo()
 
         self.status_group.setTitle(t("group_status"))
-        self.log_group.setTitle(t("group_log"))
         self.clear_log_btn.setText(t("btn_clear_log"))
         self.open_log_btn.setText(t("btn_open_log"))
         self.download_btn.setText(t("btn_download"))
         self.cancel_btn.setText(t("btn_stop"))
         self.load_links_btn.setText(t("btn_load_links"))
-        self.update_btn.setText(t("btn_update"))
-        self.quit_btn.setText(t("btn_quit"))
+        self.open_file_btn.setText(t("btn_open_file"))
+        self.open_folder_result_btn.setText(t("btn_open_folder"))
+        self.env_title.setText(t("env_title"))
+        self.env_download_btn.setText(t("btn_env_download"))
+        self.env_open_btn.setText(t("btn_open_folder"))
+        self.env_retry_btn.setText(t("btn_env_retry"))
+
+        self.bottom_tabs.setTabText(0, t("group_log"))
+        self.bottom_tabs.setTabText(1, t("group_queue"))
+        self.queue_add_btn.setText(t("btn_queue_add"))
+        self.queue_remove_btn.setText(t("btn_queue_remove"))
+        self.queue_clear_btn.setText(t("btn_queue_clear"))
+        self.queue_start_btn.setText(t("btn_queue_start"))
+        self._refresh_queue_labels()
 
         self.file_menu.setTitle(t("menu_file"))
+        self.add_queue_action.setText(t("menu_add_queue"))
         self.load_links_action.setText(t("menu_load_links"))
+        self.history_action.setText(t("menu_history"))
         self.open_folder_action.setText(t("menu_open_folder"))
-        self.open_log_action.setText(t("menu_open_log"))
         self.recent_menu.setTitle(t("menu_recent"))
         self.quit_action.setText(t("menu_exit"))
+
+        self.edit_menu.setTitle(t("menu_edit"))
+        self.paste_action.setText(t("menu_paste_url"))
+        self.clear_url_action.setText(t("menu_clear_url"))
+        self.copy_log_action.setText(t("menu_copy_log"))
+        self.settings_action.setText(t("menu_settings"))
+
+        self.view_menu.setTitle(t("menu_view"))
+        self.toggle_log_action.setText(t("menu_show_panel"))
+        self.theme_menu.setTitle(t("menu_theme"))
+        for key, label_key in (
+            ("system", "theme_system"),
+            ("light", "theme_light"),
+            ("dark", "theme_dark"),
+        ):
+            self.theme_actions[key].setText(t(label_key))
+            self.theme_actions[key].setChecked(self._theme == key)
+        self.always_on_top_action.setText(t("menu_always_on_top"))
+        self.always_on_top_action.setChecked(self._always_on_top)
+        self.minimize_to_tray_action.setText(t("menu_minimize_to_tray"))
+        self.minimize_to_tray_action.setChecked(self._minimize_to_tray)
+
         self.tools_menu.setTitle(t("menu_tools"))
+        self.check_env_action.setText(t("menu_check_env"))
+        self.open_config_action.setText(t("menu_open_config"))
         self.update_action.setText(t("menu_update"))
+        self.open_log_action.setText(t("menu_open_log"))
+        self.check_updates_action.setText(t("menu_check_updates"))
         self.language_menu.setTitle(t("menu_language"))
         self.help_menu.setTitle(t("menu_help"))
+        self.docs_action.setText(t("menu_docs"))
+        self.issues_action.setText(t("menu_report_issue"))
+        self.support_action.setText(t("menu_support"))
         self.templates_action.setText(t("menu_templates"))
         self.about_action.setText(t("menu_about"))
         self.language_en_action.setText(t("lang_en"))
@@ -499,11 +783,14 @@ class MainWindow(QMainWindow):
         self.language_en_action.setChecked(self.i18n.language == "en")
         self.language_ru_action.setChecked(self.i18n.language == "ru")
 
+        if self._tray is not None:
+            self._retranslate_tray()
         if not self._download_active:
             self.status_label.setText(t("label_ready"))
         if not self._ytdlp_ok:
             self.ytdlp_version_label.setText(t("ytdlp_version_unknown"))
         self._update_playlist_controls()
+
 
     def _fill_type_combo(self) -> None:
         current = self.download_type.currentData() or self._current_type
@@ -615,12 +902,42 @@ class MainWindow(QMainWindow):
 
             self.i18n.set_language(str(settings.value("ui/language", self.i18n.language)))
 
+            self._theme = str(settings.value("ui/theme", THEME_SYSTEM))
+            self._minimize_to_tray = _as_bool(settings.value("ui/minimize_to_tray", False))
+            self._always_on_top = _as_bool(settings.value("ui/always_on_top", False))
+            self._load_history()
+
+            advanced = _as_bool(settings.value("window/advanced", False))
+            self.advanced_btn.blockSignals(True)
+            self.advanced_btn.setChecked(advanced)
+            self.advanced_btn.blockSignals(False)
+            self.advanced_panel.setVisible(advanced)
+            self.advanced_btn.setArrowType(
+                Qt.ArrowType.DownArrow if advanced else Qt.ArrowType.RightArrow
+            )
+
             geometry = settings.value("window/geometry")
             if geometry:
                 self.restoreGeometry(geometry)
+            splitter_state = settings.value("window/splitter")
+            if splitter_state:
+                self.main_splitter.restoreState(splitter_state)
+            sizes = self.main_splitter.sizes()
+            if len(sizes) > 1 and sizes[1] > 0:
+                self._log_height = sizes[1]
+            self._set_log_visible(_as_bool(settings.value("window/log_visible", True)))
+            tab_index = settings.value("window/bottom_tab", 0)
+            try:
+                self.bottom_tabs.setCurrentIndex(int(tab_index))
+            except (TypeError, ValueError):
+                self.bottom_tabs.setCurrentIndex(0)
         finally:
             self._loading = False
         self._update_playlist_controls()
+        if self._always_on_top:
+            flags = self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint
+            self.setWindowFlags(flags)
+        self._set_theme(self._theme, persist=False)
 
     def _persist_settings(self) -> None:
         if self._loading:
@@ -646,7 +963,14 @@ class MainWindow(QMainWindow):
         settings.setValue("playlist/scope", self.playlist_scope_combo.currentData() or "all")
         settings.setValue("playlist/items", self.playlist_spec_edit.text())
         settings.setValue("ui/language", self.i18n.language)
+        settings.setValue("ui/theme", self._theme)
+        settings.setValue("ui/minimize_to_tray", self._minimize_to_tray)
+        settings.setValue("ui/always_on_top", self._always_on_top)
         settings.setValue("window/geometry", self.saveGeometry())
+        settings.setValue("window/splitter", self.main_splitter.saveState())
+        settings.setValue("window/log_visible", self.toggle_log_action.isChecked())
+        settings.setValue("window/advanced", self.advanced_btn.isChecked())
+        settings.setValue("window/bottom_tab", self.bottom_tabs.currentIndex())
         settings.sync()
 
     # -------------------------------------------------------------- actions
@@ -668,18 +992,21 @@ class MainWindow(QMainWindow):
         self._current_type = media
         self._fill_quality_combo(preserve=False)
         self._fill_format_combo(preserve=False)
+        self._sync_preset_combo()
         self._persist_settings()
 
     def _on_quality_changed(self) -> None:
         if self._loading:
             return
         self._format_state[self._current_type]["quality"] = self.quality_combo.currentData() or ""
+        self._sync_preset_combo()
         self._persist_settings()
 
     def _on_format_changed(self) -> None:
         if self._loading:
             return
         self._format_state[self._current_type]["format"] = self.format_combo.currentData() or ""
+        self._sync_preset_combo()
         self._persist_settings()
 
     def _on_scope_changed(self) -> None:
@@ -700,6 +1027,319 @@ class MainWindow(QMainWindow):
             else:
                 self.playlist_spec_label.setText(self.i18n.t("label_items"))
                 self.playlist_spec_edit.setPlaceholderText(self.i18n.t("ph_items"))
+
+    def _toggle_advanced(self, checked: bool) -> None:
+        self.advanced_panel.setVisible(checked)
+        self.advanced_btn.setArrowType(
+            Qt.ArrowType.DownArrow if checked else Qt.ArrowType.RightArrow
+        )
+        self.settings.setValue("window/advanced", checked)
+        self.settings.sync()
+
+    # -------------------------------------------------------------- presets
+    def _preset_definitions(self) -> list[tuple[str, str, str, str, str]]:
+        return [
+            ("video_1080", "preset_video_1080", "video", "1080p", "mkv"),
+            ("video_720", "preset_video_720", "video", "720p", "mp4"),
+            ("audio_mp3", "preset_audio_mp3", "audio", "bestaudio", "mp3"),
+            ("audio_m4a", "preset_audio_m4a", "audio", "bestaudio", "m4a"),
+        ]
+
+    def _fill_preset_combo(self) -> None:
+        current = self.preset_combo.currentData() or "custom"
+        choices = [("custom", self.i18n.t("preset_custom"))]
+        choices.extend((key, self.i18n.t(label)) for key, label, *_ in self._preset_definitions())
+        self._fill_combo(self.preset_combo, choices, current)
+
+    def _on_preset_changed(self) -> None:
+        if self._loading:
+            return
+        key = self.preset_combo.currentData() or "custom"
+        if key == "custom":
+            return
+        preset = next((item for item in self._preset_definitions() if item[0] == key), None)
+        if preset is None:
+            return
+        _key, _label, media, quality, output_format = preset
+        self._loading = True
+        try:
+            self.download_type.setCurrentIndex(max(0, self.download_type.findData(media)))
+            self._current_type = media
+            self._format_state[media] = {"quality": quality, "format": output_format}
+            self._fill_quality_combo(preserve=False)
+            self._fill_format_combo(preserve=False)
+        finally:
+            self._loading = False
+        self._persist_settings()
+
+    def _sync_preset_combo(self) -> None:
+        media = self.download_type.currentData() or "video"
+        quality = self.quality_combo.currentData() or ""
+        output_format = self.format_combo.currentData() or ""
+        match = "custom"
+        for key, _label, preset_media, preset_quality, preset_format in self._preset_definitions():
+            if (media, quality, output_format) == (preset_media, preset_quality, preset_format):
+                match = key
+                break
+        index = self.preset_combo.findData(match)
+        if index >= 0 and index != self.preset_combo.currentIndex():
+            was_loading = self.preset_combo.blockSignals(True)
+            self.preset_combo.setCurrentIndex(index)
+            self.preset_combo.blockSignals(was_loading)
+
+    # ---------------------------------------------------------------- queue
+    def _queue_urls(self) -> list[str]:
+        return [
+            str(self.queue_list.item(row).data(Qt.ItemDataRole.UserRole))
+            for row in range(self.queue_list.count())
+        ]
+
+    def _queue_row_for_url(self, url: str) -> int:
+        for row in range(self.queue_list.count()):
+            if str(self.queue_list.item(row).data(Qt.ItemDataRole.UserRole)) == url:
+                return row
+        return -1
+
+    def add_current_url_to_queue(self) -> None:
+        url = self.url_entry.text().strip()
+        if not url:
+            urls = self.url_list or []
+            if len(urls) == 1:
+                url = urls[0]
+        if not url.lower().startswith(URL_PREFIXES):
+            QMessageBox.warning(self, self.i18n.t("dlg_warning"), self.i18n.t("queue_invalid"))
+            return
+        self.add_url_to_queue(url)
+
+    def add_url_to_queue(self, url: str) -> None:
+        if self._queue_row_for_url(url) >= 0:
+            return
+        item = QListWidgetItem()
+        item.setData(Qt.ItemDataRole.UserRole, url)
+        item.setData(Qt.ItemDataRole.UserRole + 1, "pending")
+        self.queue_list.addItem(item)
+        self._refresh_queue_labels()
+        if self.bottom_tabs.isHidden():
+            self._set_log_visible(True)
+        self.bottom_tabs.setCurrentWidget(self.queue_group)
+        self._append_log(self.i18n.t("queue_added", url=url))
+
+    def remove_selected_queue_items(self) -> None:
+        for item in self.queue_list.selectedItems():
+            if item.data(Qt.ItemDataRole.UserRole + 1) == "active":
+                continue
+            self.queue_list.takeItem(self.queue_list.row(item))
+
+    def clear_queue(self) -> None:
+        for row in range(self.queue_list.count() - 1, -1, -1):
+            item = self.queue_list.item(row)
+            if item.data(Qt.ItemDataRole.UserRole + 1) != "active":
+                self.queue_list.takeItem(row)
+
+    def start_queue(self) -> None:
+        if self._download_active or self._batch_active:
+            QMessageBox.information(self, self.i18n.t("dlg_info"), self.i18n.t("err_already_running"))
+            return
+        urls = []
+        for row in range(self.queue_list.count()):
+            item = self.queue_list.item(row)
+            if item.data(Qt.ItemDataRole.UserRole + 1) in ("done", "active"):
+                continue
+            urls.append(str(item.data(Qt.ItemDataRole.UserRole)))
+        if not urls:
+            QMessageBox.information(self, self.i18n.t("dlg_info"), self.i18n.t("queue_empty_warning"))
+            return
+        self._start_batch(urls)
+
+    def _queue_mark(self, url: str, status: str) -> None:
+        row = self._queue_row_for_url(url)
+        if row < 0:
+            return
+        item = self.queue_list.item(row)
+        item.setData(Qt.ItemDataRole.UserRole + 1, status)
+        self._refresh_queue_labels()
+
+    def _queue_status_text(self, status: str) -> str:
+        key = f"queue_status_{status}"
+        text = self.i18n.t(key)
+        return self.i18n.t("queue_status_pending") if text.startswith("queue_status_") else text
+
+    def _refresh_queue_labels(self) -> None:
+        for row in range(self.queue_list.count()):
+            item = self.queue_list.item(row)
+            status = str(item.data(Qt.ItemDataRole.UserRole + 1) or "pending")
+            url = str(item.data(Qt.ItemDataRole.UserRole) or "")
+            item.setText(f"[{self._queue_status_text(status)}] {_elide_url(url)}")
+            item.setToolTip(url)
+
+    def _show_log_menu(self, position) -> None:
+        menu = QMenu(self)
+        copy_action = menu.addAction(self.i18n.t("menu_copy_log"))
+        copy_action.triggered.connect(self.copy_log_to_clipboard)
+        menu.addSeparator()
+        clear_action = menu.addAction(self.i18n.t("btn_clear_log"))
+        clear_action.triggered.connect(self.log_text.clear)
+        open_action = menu.addAction(self.i18n.t("btn_open_log"))
+        open_action.triggered.connect(self.open_log_file)
+        menu.exec(self.log_text.mapToGlobal(position))
+
+    def copy_log_to_clipboard(self) -> None:
+        text = self.log_text.toPlainText()
+        if text:
+            QApplication.clipboard().setText(text)
+
+    # -------------------------------------------------------------- settings
+    def show_settings(self) -> None:
+        dialog = SettingsDialog(
+            self,
+            self.i18n,
+            {
+                "language": self.i18n.language,
+                "theme": self._theme,
+                "folder": self.path_entry.text().strip(),
+                "minimize_to_tray": self._minimize_to_tray,
+                "always_on_top": self._always_on_top,
+            },
+        )
+        if dialog.exec() != dialog.DialogCode.Accepted:
+            return
+        values = dialog.result_values()
+        if values["language"] != self.i18n.language:
+            self.i18n.set_language(values["language"])
+        folder = values["folder"]
+        if folder and os.path.isdir(folder):
+            self.path_entry.setText(folder)
+        self._set_minimize_to_tray(bool(values["minimize_to_tray"]))
+        self._set_always_on_top(bool(values["always_on_top"]))
+        self._set_theme(str(values["theme"]))
+        self._retranslate()
+        self._persist_settings()
+
+    def open_config_folder(self) -> None:
+        folder = os.path.dirname(self.config.config_path) or self.config.launch_dir
+        if not os.path.isdir(folder):
+            folder = self.config.launch_dir
+        QDesktopServices.openUrl(QUrl.fromLocalFile(folder))
+
+    def check_updates(self) -> None:
+        self._open_url(RELEASES_URL)
+
+    def _open_url(self, url: str) -> None:
+        QDesktopServices.openUrl(QUrl(url))
+
+    # --------------------------------------------------------------- history
+    def _load_history(self) -> None:
+        raw = self.settings.value("history/items", "")
+        entries: list[dict] = []
+        if raw:
+            try:
+                data = json.loads(str(raw))
+            except (TypeError, ValueError):
+                data = []
+            if isinstance(data, list):
+                entries = [entry for entry in data if isinstance(entry, dict)]
+        self._history = entries[:MAX_HISTORY_ITEMS]
+
+    def _save_history(self) -> None:
+        self._history = self._history[:MAX_HISTORY_ITEMS]
+        self.settings.setValue("history/items", json.dumps(self._history, ensure_ascii=False))
+        self.settings.sync()
+
+    def _append_history(self, status: str) -> None:
+        self._history.insert(
+            0,
+            {
+                "time": time.strftime("%Y-%m-%d %H:%M"),
+                "url": self._current_url,
+                "title": self._current_title,
+                "path": self._last_output_file,
+                "status": status,
+            },
+        )
+        self._save_history()
+
+    def show_history(self) -> None:
+        dialog = HistoryDialog(self, self.i18n, self._history)
+        dialog.exec()
+        if dialog.cleared:
+            self._history = []
+            self._save_history()
+
+    # ----------------------------------------------------------- last output
+    def open_last_file(self) -> None:
+        if self._last_output_file and os.path.isfile(self._last_output_file):
+            QDesktopServices.openUrl(QUrl.fromLocalFile(self._last_output_file))
+            return
+        self.open_last_folder()
+
+    def open_last_folder(self) -> None:
+        folder = os.path.dirname(self._last_output_file) if self._last_output_file else ""
+        if not folder or not os.path.isdir(folder):
+            folder = self.path_entry.text().strip() or self.config.default_download_path
+        QDesktopServices.openUrl(QUrl.fromLocalFile(folder))
+
+    # ---------------------------------------------------------- theme & tray
+    def _set_theme(self, name: str, persist: bool = True) -> None:
+        self._theme = name if name in ("system", "light", "dark") else THEME_SYSTEM
+        app = QApplication.instance()
+        if app is not None:
+            apply_theme(app, self._theme)
+        action = self.theme_actions.get(self._theme)
+        if action is not None and not action.isChecked():
+            action.setChecked(True)
+        if persist:
+            self.settings.setValue("ui/theme", self._theme)
+            self.settings.sync()
+
+    def _set_always_on_top(self, checked: bool) -> None:
+        self._always_on_top = bool(checked)
+        if self.always_on_top_action.isChecked() != self._always_on_top:
+            self.always_on_top_action.blockSignals(True)
+            self.always_on_top_action.setChecked(self._always_on_top)
+            self.always_on_top_action.blockSignals(False)
+        flags = self.windowFlags()
+        if self._always_on_top:
+            flags |= Qt.WindowType.WindowStaysOnTopHint
+        else:
+            flags &= ~Qt.WindowType.WindowStaysOnTopHint
+        self.setWindowFlags(flags)
+        self.show()
+        self.settings.setValue("ui/always_on_top", self._always_on_top)
+        self.settings.sync()
+
+    def _set_minimize_to_tray(self, checked: bool) -> None:
+        self._minimize_to_tray = bool(checked)
+        if self.minimize_to_tray_action.isChecked() != self._minimize_to_tray:
+            self.minimize_to_tray_action.blockSignals(True)
+            self.minimize_to_tray_action.setChecked(self._minimize_to_tray)
+            self.minimize_to_tray_action.blockSignals(False)
+        self.settings.setValue("ui/minimize_to_tray", self._minimize_to_tray)
+        self.settings.sync()
+
+    def _show_window(self) -> None:
+        self.showNormal()
+        self.raise_()
+        self.activateWindow()
+
+    def _hide_window(self) -> None:
+        self.hide()
+        if self._tray is not None and not self._tray.isVisible():
+            self._tray.show()
+
+    def _quit_app(self) -> None:
+        self._quitting = True
+        self.close()
+
+    def _retranslate_tray(self) -> None:
+        if self._tray is None:
+            return
+        self._tray.setToolTip(self.base_title)
+        menu = getattr(self, "_tray_menu", None)
+        if menu is not None:
+            self.tray_show_action.setText(self.i18n.t("tray_show"))
+            self.tray_cancel_action.setText(self.i18n.t("tray_cancel"))
+            self.tray_folder_action.setText(self.i18n.t("tray_open_folder"))
+            self.tray_quit_action.setText(self.i18n.t("tray_quit"))
 
     def browse_path(self) -> None:
         directory = QFileDialog.getExistingDirectory(
@@ -825,6 +1465,10 @@ class MainWindow(QMainWindow):
         self._append_log(" ".join(_quote(part) for part in command))
         self._current_url = url
         self._current_title = ""
+        self._last_output_file = ""
+        self.open_file_btn.setVisible(False)
+        self.open_folder_result_btn.setVisible(False)
+        self.progress_detail_label.clear()
         # The recent list tracks every attempted download, not just the
         # successful ones, so the URL is remembered before yt-dlp starts.
         self._remember_url(url)
@@ -866,7 +1510,6 @@ class MainWindow(QMainWindow):
         self.download_btn.setEnabled(not running and self._ytdlp_ok)
         self.cancel_btn.setEnabled(running)
         self.load_links_btn.setEnabled(not running)
-        self.update_btn.setEnabled(not running and self._ytdlp_ok)
         self.load_links_action.setEnabled(not running)
         self.update_action.setEnabled(not running and self._ytdlp_ok)
         for group in (self.source_group, self.playlist_group, self.options_group):
@@ -880,14 +1523,23 @@ class MainWindow(QMainWindow):
         self.runner.cancel()
 
     def _on_progress(self, update: ProgressUpdate) -> None:
+        if update.filename:
+            self._last_output_file = update.filename
         if update.percent is not None:
             self._item_percent = update.percent
-            self.progress_bar.setValue(int(update.percent))
-        if self._batch_active:
-            overall = ((self._batch_current - 1) + self._item_percent / 100.0) / max(1, self._batch_total)
-            self.batch_progress_bar.setValue(int(overall * 100))
+            if self._batch_active:
+                overall = (
+                    (self._batch_current - 1) + self._item_percent / 100.0
+                ) / max(1, self._batch_total)
+                self.progress_bar.setValue(int(overall * 100))
+            else:
+                self.progress_bar.setValue(int(update.percent))
 
         parts: list[str] = []
+        if update.title:
+            parts.append(update.title)
+        if update.total:
+            parts.append(update.total)
         if update.percent is not None:
             parts.append(f"{update.percent:.1f}%")
         if update.speed:
@@ -896,9 +1548,21 @@ class MainWindow(QMainWindow):
             parts.append(self.i18n.t("eta", value=update.eta))
         if update.stage:
             parts.append(self._stage_text(update.stage))
-        text = " · ".join(parts) if parts else self.i18n.t("status_downloading")
+        detail = " · ".join(parts) if parts else self.i18n.t("status_downloading")
         if self._batch_active:
-            text = f"{self.i18n.t('batch_item', current=self._batch_current, total=self._batch_total)} — {text}"
+            detail = (
+                f"{self.i18n.t('batch_item', current=self._batch_current, total=self._batch_total)}"
+                f" — {detail}"
+            )
+        self.progress_detail_label.setText(detail)
+        self.progress_detail_label.setToolTip(update.filename)
+
+        short_parts: list[str] = []
+        if update.percent is not None:
+            short_parts.append(f"{update.percent:.1f}%")
+        if update.speed:
+            short_parts.append(update.speed)
+        text = " · ".join(short_parts) if short_parts else self.i18n.t("status_downloading")
         self._set_status(text, "blue")
         self.status_label.setToolTip(update.filename)
 
@@ -915,18 +1579,30 @@ class MainWindow(QMainWindow):
         ok = exit_code == 0 and not cancelled
         if cancelled:
             self._set_status(self.i18n.t("status_cancelled"), "orange")
+            history_status = "cancelled"
         elif ok:
             self.progress_bar.setValue(100)
             self._set_status(self.i18n.t("status_done"), "green")
+            history_status = "ok"
             self._notify(
                 self.i18n.t("notify_done_title"),
                 self.i18n.t("notify_done_text", path=self.path_entry.text()),
             )
         else:
             self._set_status(self.i18n.t("status_failed", code=exit_code), "red")
+            history_status = "failed"
             self._notify(
                 self.i18n.t("notify_failed_title"), self.i18n.t("notify_failed_text", code=exit_code)
             )
+
+        if self._last_output_file:
+            self.open_file_btn.setVisible(True)
+            self.open_folder_result_btn.setVisible(True)
+        self._append_history(history_status)
+        self._queue_mark(
+            self._current_url,
+            "done" if ok else ("cancelled" if cancelled else "failed"),
+        )
 
         if not self._batch_active:
             return
@@ -958,8 +1634,10 @@ class MainWindow(QMainWindow):
         self._batch_total = len(self._batch_queue)
         self._batch_current = 0
         self._batch_active = True
-        self.batch_progress_bar.setValue(0)
-        self.batch_progress_bar.setVisible(True)
+        self.progress_bar.setValue(0)
+        self.progress_detail_label.clear()
+        self.open_file_btn.setVisible(False)
+        self.open_folder_result_btn.setVisible(False)
         self._set_window_title()
         self._start_next_batch_item()
 
@@ -969,6 +1647,7 @@ class MainWindow(QMainWindow):
             return
         url = self._batch_queue.pop(0)
         self._batch_current += 1
+        self._queue_mark(url, "active")
         self._append_log(
             self.i18n.t(
                 "batch_log_start", current=self._batch_current, total=self._batch_total, url=url
@@ -976,6 +1655,7 @@ class MainWindow(QMainWindow):
         )
         self._set_window_title()
         if not self.start_download(url, ""):
+            self._queue_mark(url, "failed")
             self._batch_results.append(
                 BatchResult(url, False, self.i18n.t("err_start", error=self.config.yt_dlp_path))
             )
@@ -986,16 +1666,14 @@ class MainWindow(QMainWindow):
 
     def _finish_batch(self) -> None:
         results = list(self._batch_results)
+        total = self._batch_total
         self._batch_active = False
         self._batch_queue = []
         self._batch_results = []
-        self.batch_progress_bar.setVisible(False)
-        self.batch_progress_bar.setValue(0)
+        self.progress_detail_label.clear()
         self._set_window_title()
         succeeded = sum(1 for result in results if result.ok)
-        self._append_log(
-            self.i18n.t("batch_finished", done=succeeded, total=self._batch_total)
-        )
+        self._append_log(self.i18n.t("batch_finished", done=succeeded, total=total))
         dialog = BatchSummaryDialog(self, self.i18n, results)
         dialog.exec()
         if dialog.retry_urls:
@@ -1117,7 +1795,28 @@ class MainWindow(QMainWindow):
             return
         self._tray = QSystemTrayIcon(self.windowIcon(), self)
         self._tray.setToolTip(self.base_title)
+
+        self._tray_menu = QMenu(self)
+        self.tray_show_action = self._tray_menu.addAction("")
+        self.tray_show_action.triggered.connect(self._show_window)
+        self.tray_cancel_action = self._tray_menu.addAction("")
+        self.tray_cancel_action.triggered.connect(self.cancel_download)
+        self.tray_folder_action = self._tray_menu.addAction("")
+        self.tray_folder_action.triggered.connect(self.open_download_folder)
+        self._tray_menu.addSeparator()
+        self.tray_quit_action = self._tray_menu.addAction("")
+        self.tray_quit_action.triggered.connect(self._quit_app)
+        self._tray.setContextMenu(self._tray_menu)
+        self._tray.activated.connect(self._on_tray_activated)
+        self._retranslate_tray()
         self._tray.show()
+
+    def _on_tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
+        if reason in (
+            QSystemTrayIcon.ActivationReason.DoubleClick,
+            QSystemTrayIcon.ActivationReason.Trigger,
+        ):
+            self._show_window()
 
     def _notify(self, title: str, message: str) -> None:
         if self._tray is not None and QSystemTrayIcon.supportsMessages():
@@ -1165,7 +1864,6 @@ class MainWindow(QMainWindow):
         )
         self._update_process = process
         self._update_buffer = b""
-        self.update_btn.setEnabled(False)
         self.update_action.setEnabled(False)
         self._append_log(self.i18n.t("update_started"))
         self._set_status(self.i18n.t("update_started"), "blue")
@@ -1188,7 +1886,6 @@ class MainWindow(QMainWindow):
             self._update_buffer = b""
         process.deleteLater()
         self._update_process = None
-        self.update_btn.setEnabled(self._ytdlp_ok)
         self.update_action.setEnabled(self._ytdlp_ok)
         if self._download_active:
             return
@@ -1213,29 +1910,36 @@ class MainWindow(QMainWindow):
             messages.append(self.i18n.t("missing_ffprobe", path=self.config.ffprobe_path))
 
         path = self.path_entry.text().strip() or self.config.default_download_path
-        if not is_writable_dir(path):
+        path_bad = not is_writable_dir(path)
+        if path_bad:
             messages.append(self.i18n.t("path_not_writable", path=path))
 
         self._ytdlp_ok = not ytdlp_missing
         self.download_btn.setEnabled(self._ytdlp_ok)
-        self.update_btn.setEnabled(self._ytdlp_ok)
         self.update_action.setEnabled(self._ytdlp_ok)
         if not messages:
+            self.env_banner.setVisible(False)
             return
         for message in messages:
             self._append_log(message.replace("\n", " "))
 
-        if not self._interactive:
-            return
-        if ytdlp_missing:
-            QMessageBox.critical(self, self.i18n.t("missing_title"), "\n\n".join(messages))
-            return
-        # Warnings are shown once per unique set of problems to avoid nagging.
-        signature = "|".join(messages)
-        if str(self.settings.value("env/warning_signature", "")) != signature:
-            self.settings.setValue("env/warning_signature", signature)
-            self.settings.sync()
-            QMessageBox.warning(self, self.i18n.t("missing_title"), "\n\n".join(messages))
+        # Keep the problem visible in the window instead of a modal dialog
+        # that can be dismissed and forgotten.
+        self._env_folder_target = (
+            path if path_bad and os.path.isdir(path) else self.config.launch_dir
+        )
+        self.env_text.setText("\n".join(messages))
+        self.env_download_btn.setVisible(ytdlp_missing)
+        self.env_banner.setVisible(True)
+
+    def download_ytdlp(self) -> None:
+        QDesktopServices.openUrl(QUrl("https://github.com/yt-dlp/yt-dlp/releases/latest"))
+
+    def open_env_folder(self) -> None:
+        target = self._env_folder_target
+        if not target or not os.path.isdir(target):
+            target = self.config.launch_dir
+        QDesktopServices.openUrl(QUrl.fromLocalFile(target))
 
     def _center_window(self) -> None:
         frame = self.frameGeometry()
@@ -1246,6 +1950,21 @@ class MainWindow(QMainWindow):
 
     # ------------------------------------------------------------ lifecycle
     def closeEvent(self, event) -> None:  # noqa: N802 - Qt API
+        if (
+            self._minimize_to_tray
+            and not self._quitting
+            and self._tray is not None
+            and self._tray.isVisible()
+        ):
+            event.ignore()
+            self._persist_settings()
+            self.hide()
+            self._notify(
+                self.i18n.t("tray_minimized_title"),
+                self.i18n.t("tray_minimized_text"),
+            )
+            return
+
         self._persist_settings()
         # Portable settings live next to the executable; avoid writing into a
         # source checkout during development.

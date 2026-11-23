@@ -8,21 +8,33 @@ from dataclasses import dataclass
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
+    QAbstractItemView,
     QApplication,
+    QCheckBox,
+    QComboBox,
     QDialog,
+    QFileDialog,
+    QFormLayout,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
+    QMessageBox,
     QPlainTextEdit,
     QPushButton,
+    QTableWidget,
+    QTableWidgetItem,
     QVBoxLayout,
 )
 
 from ui.i18n import I18n
+from ui.theme import make_support_button
 
 APP_NAME = "Portable Download Manager"
 LICENSE_FALLBACK_PATH = "blob/main/LICENSE"
+DONATE_URL = "https://yoomoney.ru/to/41001937179526"
 
 # Most common and useful yt-dlp output templates. The second element is a
 # translation key describing when the template is handy.
@@ -49,10 +61,12 @@ class AboutDialog(QDialog):
         version: str,
         project_url: str,
         license_path: str = "",
+        donate_url: str = DONATE_URL,
     ) -> None:
         super().__init__(parent)
         self.project_url = project_url
         self.license_path = license_path
+        self.donate_url = donate_url
         self.setWindowTitle(i18n.t("about_title"))
         self.setMinimumWidth(460)
         self.setSizeGripEnabled(True)
@@ -74,6 +88,15 @@ class AboutDialog(QDialog):
             Qt.TextInteractionFlag.TextSelectableByMouse
         )
         layout.addWidget(self.description_label)
+
+        donate_row = QHBoxLayout()
+        self.donate_button = QPushButton(i18n.t("about_support"))
+        self.donate_button.setAutoDefault(False)
+        make_support_button(self.donate_button)
+        self.donate_button.clicked.connect(self.open_donate)
+        donate_row.addWidget(self.donate_button)
+        donate_row.addStretch(1)
+        layout.addLayout(donate_row)
 
         buttons = QHBoxLayout()
         self.project_button = QPushButton(i18n.t("about_project"))
@@ -102,6 +125,9 @@ class AboutDialog(QDialog):
 
     def open_license(self) -> None:
         QDesktopServices.openUrl(QUrl(self.license_target()))
+
+    def open_donate(self) -> None:
+        QDesktopServices.openUrl(QUrl(self.donate_url))
 
 
 class TemplateHelpDialog(QDialog):
@@ -228,3 +254,165 @@ class BatchSummaryDialog(QDialog):
 
         retry_button.clicked.connect(retry)
         close_button.clicked.connect(self.reject)
+
+
+class SettingsDialog(QDialog):
+    """Small preferences dialog for values that are not download-specific."""
+
+    def __init__(self, parent, i18n: I18n, values: dict) -> None:
+        super().__init__(parent)
+        self.i18n = i18n
+        self.setWindowTitle(i18n.t("settings_title"))
+        self.setMinimumWidth(520)
+        layout = QVBoxLayout(self)
+
+        form = QFormLayout()
+        self.language_combo = QComboBox()
+        for code, key in (("en", "lang_en"), ("ru", "lang_ru")):
+            self.language_combo.addItem(i18n.t(key), code)
+        _select_data(self.language_combo, str(values.get("language", "en")))
+        form.addRow(i18n.t("settings_language"), self.language_combo)
+
+        self.theme_combo = QComboBox()
+        for code, key in (
+            ("system", "theme_system"),
+            ("light", "theme_light"),
+            ("dark", "theme_dark"),
+        ):
+            self.theme_combo.addItem(i18n.t(key), code)
+        _select_data(self.theme_combo, str(values.get("theme", "system")))
+        form.addRow(i18n.t("settings_theme"), self.theme_combo)
+
+        self.folder_entry = QLineEdit(str(values.get("folder", "")))
+        browse_button = QPushButton(i18n.t("btn_browse"))
+        browse_button.clicked.connect(self._browse_folder)
+        folder_row = QHBoxLayout()
+        folder_row.addWidget(self.folder_entry, 1)
+        folder_row.addWidget(browse_button)
+        form.addRow(i18n.t("settings_default_folder"), folder_row)
+
+        self.minimize_check = QCheckBox(i18n.t("settings_minimize_to_tray"))
+        self.minimize_check.setChecked(bool(values.get("minimize_to_tray", False)))
+        form.addRow("", self.minimize_check)
+        self.on_top_check = QCheckBox(i18n.t("settings_always_on_top"))
+        self.on_top_check.setChecked(bool(values.get("always_on_top", False)))
+        form.addRow("", self.on_top_check)
+        layout.addLayout(form)
+
+        buttons = QHBoxLayout()
+        buttons.addStretch(1)
+        self.save_button = QPushButton(i18n.t("btn_save"))
+        self.save_button.setDefault(True)
+        self.save_button.clicked.connect(self.accept)
+        cancel_button = QPushButton(i18n.t("btn_cancel"))
+        cancel_button.clicked.connect(self.reject)
+        buttons.addWidget(self.save_button)
+        buttons.addWidget(cancel_button)
+        layout.addLayout(buttons)
+
+    def _browse_folder(self) -> None:
+        directory = QFileDialog.getExistingDirectory(
+            self, self.i18n.t("settings_default_folder"), self.folder_entry.text()
+        )
+        if directory:
+            self.folder_entry.setText(directory)
+
+    def result_values(self) -> dict:
+        return {
+            "language": self.language_combo.currentData() or "en",
+            "theme": self.theme_combo.currentData() or "system",
+            "folder": self.folder_entry.text().strip(),
+            "minimize_to_tray": self.minimize_check.isChecked(),
+            "always_on_top": self.on_top_check.isChecked(),
+        }
+
+
+class HistoryDialog(QDialog):
+    """Completed and failed downloads with quick access to their files."""
+
+    STATUS_KEYS = {
+        "ok": "history_status_ok",
+        "failed": "history_status_failed",
+        "cancelled": "history_status_cancelled",
+    }
+
+    def __init__(self, parent, i18n: I18n, entries: list[dict]) -> None:
+        super().__init__(parent)
+        self.i18n = i18n
+        self.entries = list(entries)
+        self.cleared = False
+        self.setWindowTitle(i18n.t("history_title"))
+        self.resize(760, 420)
+        layout = QVBoxLayout(self)
+        layout.addWidget(QLabel(i18n.t("history_open_hint")))
+
+        self.table = QTableWidget(0, 3, self)
+        self.table.setHorizontalHeaderLabels(
+            [
+                i18n.t("history_col_date"),
+                i18n.t("history_col_title"),
+                i18n.t("history_col_status"),
+            ]
+        )
+        self.table.verticalHeader().setVisible(False)
+        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        layout.addWidget(self.table, 1)
+        self._populate()
+        self.table.itemDoubleClicked.connect(self._open_entry)
+
+        buttons = QHBoxLayout()
+        self.clear_button = QPushButton(i18n.t("btn_clear_history"))
+        self.clear_button.setEnabled(bool(self.entries))
+        self.clear_button.clicked.connect(self._clear)
+        close_button = QPushButton(i18n.t("btn_close"))
+        close_button.setDefault(True)
+        close_button.clicked.connect(self.accept)
+        buttons.addWidget(self.clear_button)
+        buttons.addStretch(1)
+        buttons.addWidget(close_button)
+        layout.addLayout(buttons)
+
+    def _populate(self) -> None:
+        self.table.setRowCount(len(self.entries))
+        for row, entry in enumerate(self.entries):
+            status = self.STATUS_KEYS.get(str(entry.get("status", "")), "history_status_failed")
+            values = (
+                str(entry.get("time", "")),
+                str(entry.get("title") or entry.get("url", "")),
+                self.i18n.t(status),
+            )
+            for column, value in enumerate(values):
+                item = QTableWidgetItem(value)
+                if column == 1:
+                    item.setToolTip(str(entry.get("url", "")))
+                self.table.setItem(row, column, item)
+
+    def _open_entry(self, item: QTableWidgetItem) -> None:
+        row = item.row()
+        if row < 0 or row >= len(self.entries):
+            return
+        path = str(self.entries[row].get("path", ""))
+        if path and os.path.isfile(path):
+            QDesktopServices.openUrl(QUrl.fromLocalFile(path))
+            return
+        folder = os.path.dirname(path) if path else ""
+        if folder and os.path.isdir(folder):
+            QDesktopServices.openUrl(QUrl.fromLocalFile(folder))
+            return
+        QMessageBox.information(self, self.windowTitle(), self.i18n.t("history_missing_file"))
+
+    def _clear(self) -> None:
+        self.entries = []
+        self.cleared = True
+        self.table.setRowCount(0)
+        self.clear_button.setEnabled(False)
+
+
+def _select_data(combo: QComboBox, value: str) -> None:
+    index = combo.findData(value)
+    combo.setCurrentIndex(index if index >= 0 else 0)

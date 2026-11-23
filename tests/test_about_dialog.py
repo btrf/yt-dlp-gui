@@ -3,7 +3,7 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PyQt6.QtWidgets import QApplication  # noqa: E402
-from ui.dialogs import APP_NAME, AboutDialog  # noqa: E402
+from ui.dialogs import APP_NAME, DONATE_URL, AboutDialog  # noqa: E402
 from ui.i18n import I18n  # noqa: E402
 
 _app = QApplication.instance() or QApplication([])
@@ -17,7 +17,7 @@ def make_dialog(**kwargs) -> AboutDialog:
 
 def test_dialog_shows_product_name_and_version():
     dialog = make_dialog()
-    assert dialog.windowTitle() == "О программе Portable Download Manager"
+    assert dialog.windowTitle() == "О программе"
     assert dialog.name_label.text() == APP_NAME
     assert dialog.version_label.text() == "Версия 3.1.0"
     assert dialog.description_label.text() == (
@@ -37,6 +37,14 @@ def test_link_buttons_do_not_steal_enter():
     dialog = make_dialog()
     assert not dialog.project_button.autoDefault()
     assert not dialog.license_button.autoDefault()
+    assert not dialog.donate_button.autoDefault()
+
+
+def test_donate_button_points_to_yoomoney():
+    dialog = make_dialog()
+    assert dialog.donate_button.text() == "Поддержать на YooMoney"
+    assert dialog.donate_url == DONATE_URL
+    assert DONATE_URL == "https://yoomoney.ru/to/41001937179526"
 
 
 def test_license_falls_back_to_the_project_page(tmp_path):

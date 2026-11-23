@@ -25,6 +25,9 @@ $version = (& $py -c "import version; print(version.APP_VERSION)").Trim()
 
 Write-Host 'Building single-file portable exe...'
 & $py -m PyInstaller --noconfirm --clean yt_dlp_gui.spec
+if ($LASTEXITCODE -ne 0) {
+    throw "PyInstaller failed with exit code $LASTEXITCODE - is the old exe still running?"
+}
 
 $exe = Join-Path $project "dist\yt-dlp-gui-portable-v$version.exe"
 if (-not (Test-Path $exe)) { throw "Build output not found at $exe" }
