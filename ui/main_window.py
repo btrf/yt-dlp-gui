@@ -451,20 +451,9 @@ class MainWindow(QMainWindow):
         self.cancel_btn.clicked.connect(self.cancel_download)
         self.load_links_btn = QPushButton()
         self.load_links_btn.clicked.connect(self.load_links_from_file)
-        self.open_file_btn = QPushButton()
-        self.open_file_btn.setIcon(
-            self.style().standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton)
-        )
-        self.open_file_btn.clicked.connect(self.open_last_file)
-        self.open_file_btn.setVisible(False)
-        self.open_folder_result_btn = QPushButton()
-        self.open_folder_result_btn.clicked.connect(self.open_last_folder)
-        self.open_folder_result_btn.setVisible(False)
         buttons.addWidget(self.download_btn)
         buttons.addWidget(self.cancel_btn)
         buttons.addWidget(self.load_links_btn)
-        buttons.addWidget(self.open_file_btn)
-        buttons.addWidget(self.open_folder_result_btn)
         buttons.addStretch(1)
         layout.addLayout(buttons)
 
@@ -721,8 +710,6 @@ class MainWindow(QMainWindow):
         self.download_btn.setText(t("btn_download"))
         self.cancel_btn.setText(t("btn_stop"))
         self.load_links_btn.setText(t("btn_load_links"))
-        self.open_file_btn.setText(t("btn_open_file"))
-        self.open_folder_result_btn.setText(t("btn_open_folder"))
         self.env_title.setText(t("env_title"))
         self.env_download_btn.setText(t("btn_env_download"))
         self.env_open_btn.setText(t("btn_open_folder"))
@@ -1265,19 +1252,6 @@ class MainWindow(QMainWindow):
             self._history = []
             self._save_history()
 
-    # ----------------------------------------------------------- last output
-    def open_last_file(self) -> None:
-        if self._last_output_file and os.path.isfile(self._last_output_file):
-            QDesktopServices.openUrl(QUrl.fromLocalFile(self._last_output_file))
-            return
-        self.open_last_folder()
-
-    def open_last_folder(self) -> None:
-        folder = os.path.dirname(self._last_output_file) if self._last_output_file else ""
-        if not folder or not os.path.isdir(folder):
-            folder = self.path_entry.text().strip() or self.config.default_download_path
-        QDesktopServices.openUrl(QUrl.fromLocalFile(folder))
-
     # ---------------------------------------------------------- theme & tray
     def _set_theme(self, name: str, persist: bool = True) -> None:
         self._theme = name if name in ("system", "light", "dark") else THEME_SYSTEM
@@ -1466,8 +1440,6 @@ class MainWindow(QMainWindow):
         self._current_url = url
         self._current_title = ""
         self._last_output_file = ""
-        self.open_file_btn.setVisible(False)
-        self.open_folder_result_btn.setVisible(False)
         self.progress_detail_label.clear()
         # The recent list tracks every attempted download, not just the
         # successful ones, so the URL is remembered before yt-dlp starts.
@@ -1595,9 +1567,6 @@ class MainWindow(QMainWindow):
                 self.i18n.t("notify_failed_title"), self.i18n.t("notify_failed_text", code=exit_code)
             )
 
-        if self._last_output_file:
-            self.open_file_btn.setVisible(True)
-            self.open_folder_result_btn.setVisible(True)
         self._append_history(history_status)
         self._queue_mark(
             self._current_url,
@@ -1636,8 +1605,6 @@ class MainWindow(QMainWindow):
         self._batch_active = True
         self.progress_bar.setValue(0)
         self.progress_detail_label.clear()
-        self.open_file_btn.setVisible(False)
-        self.open_folder_result_btn.setVisible(False)
         self._set_window_title()
         self._start_next_batch_item()
 
