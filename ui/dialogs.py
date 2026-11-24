@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
-from PyQt6.QtCore import Qt, QUrl
+from PyQt6.QtCore import Qt, QUrl, pyqtSignal
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMessageBox,
+    QMenu,
     QPlainTextEdit,
     QPushButton,
     QTableWidget,
@@ -30,11 +31,11 @@ from PyQt6.QtWidgets import (
 )
 
 from ui.i18n import I18n
-from ui.theme import make_support_button
 
 APP_NAME = "Portable Download Manager"
 LICENSE_FALLBACK_PATH = "blob/main/LICENSE"
 DONATE_URL = "https://yoomoney.ru/to/41001937179526"
+WEBSITE_URL = "https://btrf.github.io/yt-dlp-gui/"
 
 # Most common and useful yt-dlp output templates. The second element is a
 # translation key describing when the template is handy.
@@ -62,11 +63,15 @@ class AboutDialog(QDialog):
         project_url: str,
         license_path: str = "",
         donate_url: str = DONATE_URL,
+        website_url: str = WEBSITE_URL,
+        ytdlp_version: str = "",
+        ffmpeg_version: str = "",
     ) -> None:
         super().__init__(parent)
         self.project_url = project_url
         self.license_path = license_path
         self.donate_url = donate_url
+        self.website_url = website_url
         self.setWindowTitle(i18n.t("about_title"))
         self.setMinimumWidth(460)
         self.setSizeGripEnabled(True)
@@ -79,26 +84,32 @@ class AboutDialog(QDialog):
         self.name_label.setStyleSheet("font-size: 15pt; font-weight: 600;")
         layout.addWidget(self.name_label)
         self.version_label = QLabel(i18n.t("about_version", version=version))
-        self.version_label.setStyleSheet("color: palette(mid);")
         layout.addWidget(self.version_label)
-
-        self.description_label = QLabel(i18n.t("about_description"))
-        self.description_label.setWordWrap(True)
-        self.description_label.setTextInteractionFlags(
-            Qt.TextInteractionFlag.TextSelectableByMouse
+        self.ytdlp_version_label = QLabel(
+            i18n.t("ytdlp_version", version=ytdlp_version)
+            if ytdlp_version
+            else i18n.t("ytdlp_version_unknown")
         )
-        layout.addWidget(self.description_label)
+        layout.addWidget(self.ytdlp_version_label)
+        self.ffmpeg_version_label = QLabel(
+            i18n.t("ffmpeg_version", version=ffmpeg_version)
+            if ffmpeg_version
+            else i18n.t("ffmpeg_version_unknown")
+        )
+        layout.addWidget(self.ffmpeg_version_label)
 
         donate_row = QHBoxLayout()
         self.donate_button = QPushButton(i18n.t("about_support"))
         self.donate_button.setAutoDefault(False)
-        make_support_button(self.donate_button)
         self.donate_button.clicked.connect(self.open_donate)
         donate_row.addWidget(self.donate_button)
         donate_row.addStretch(1)
         layout.addLayout(donate_row)
 
         buttons = QHBoxLayout()
+        self.website_button = QPushButton(i18n.t("about_website"))
+        self.website_button.setAutoDefault(False)
+        self.website_button.clicked.connect(self.open_website)
         self.project_button = QPushButton(i18n.t("about_project"))
         self.project_button.setAutoDefault(False)
         self.project_button.clicked.connect(self.open_project)
@@ -108,6 +119,7 @@ class AboutDialog(QDialog):
         self.close_button = QPushButton(i18n.t("btn_close"))
         self.close_button.setDefault(True)
         self.close_button.clicked.connect(self.accept)
+        buttons.addWidget(self.website_button)
         buttons.addWidget(self.project_button)
         buttons.addWidget(self.license_button)
         buttons.addStretch(1)
@@ -119,6 +131,9 @@ class AboutDialog(QDialog):
         if self.license_path and os.path.isfile(self.license_path):
             return QUrl.fromLocalFile(self.license_path).toString()
         return f"{self.project_url.rstrip('/')}/{LICENSE_FALLBACK_PATH}"
+
+    def open_website(self) -> None:
+        QDesktopServices.openUrl(QUrl(self.website_url))
 
     def open_project(self) -> None:
         QDesktopServices.openUrl(QUrl(self.project_url))
@@ -330,6 +345,8 @@ class SettingsDialog(QDialog):
 class HistoryDialog(QDialog):
     """Completed and failed downloads with quick access to their files."""
 
+    download_requested = pyqtSignal(str)
+
     STATUS_KEYS = {
         "ok": "history_status_ok",
         "failed": "history_status_failed",
@@ -364,6 +381,8 @@ class HistoryDialog(QDialog):
         layout.addWidget(self.table, 1)
         self._populate()
         self.table.itemDoubleClicked.connect(self._open_entry)
+        self.table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.table.customContextMenuRequested.connect(self._show_menu)
 
         buttons = QHBoxLayout()
         self.clear_button = QPushButton(i18n.t("btn_clear_history"))
@@ -391,6 +410,34 @@ class HistoryDialog(QDialog):
                 if column == 1:
                     item.setToolTip(str(entry.get("url", "")))
                 self.table.setItem(row, column, item)
+
+    def _show_menu(self, position) -> None:
+        item = self.table.itemAt(position)
+        if item is None:
+            selected = self.table.selectedItems()
+            item = selected[0] if selected else self.table.currentItem()
+        if item is None:
+            return
+        menu = self._build_context_menu(item.row())
+        if menu is not None:
+            menu.exec(self.table.viewport().mapToGlobal(position))
+
+    def _build_context_menu(self, row: int) -> QMenu | None:
+        if not 0 <= row < len(self.entries):
+            return None
+        url = str(self.entries[row].get("url", ""))
+        if not url:
+            return None
+        menu = QMenu(self)
+        copy_action = menu.addAction(self.i18n.t("menu_copy_link"))
+        copy_action.triggered.connect(lambda: QApplication.clipboard().setText(url))
+        again_action = menu.addAction(self.i18n.t("history_download_again"))
+        again_action.triggered.connect(lambda: self._request_download(url))
+        return menu
+
+    def _request_download(self, url: str) -> None:
+        self.accept()
+        self.download_requested.emit(url)
 
     def _open_entry(self, item: QTableWidgetItem) -> None:
         row = item.row()

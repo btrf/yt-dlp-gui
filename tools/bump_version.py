@@ -3,6 +3,7 @@
 
 Usage:
     python tools/bump_version.py 3.0.0
+    python tools/bump_version.py --bump-patch
     python tools/bump_version.py --check
 """
 
@@ -40,6 +41,13 @@ def _version_tuple(version: str) -> tuple[str, ...]:
     while len(parts) < 4:
         parts.append(0)
     return tuple(str(part) for part in parts)
+
+
+def next_patch(version: str) -> str:
+    if not SEMVER_RE.match(version):
+        raise SystemExit(f"Invalid version '{version}', expected MAJOR.MINOR.PATCH")
+    major, minor, patch = (int(part) for part in version.split("."))
+    return f"{major}.{minor}.{patch + 1}"
 
 
 def bump(new_version: str) -> int:
@@ -106,6 +114,8 @@ def main(argv: list[str]) -> int:
         return 2
     if argv[1] == "--check":
         return check()
+    if argv[1] in ("--bump-patch", "-p"):
+        return bump(next_patch(read_version()))
     return bump(argv[1])
 
 

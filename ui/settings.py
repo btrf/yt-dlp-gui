@@ -1,32 +1,64 @@
-"""Portable-first UI settings (QSettings in INI format)."""
+"""UI settings stored in the single portable ``yt-dlp-gui.json`` config."""
 
 from __future__ import annotations
 
 import os
 
-from PyQt6.QtCore import QSettings, QStandardPaths
+from PyQt6.QtCore import QByteArray, QSettings
 
-SETTINGS_FILENAME = "yt-dlp-gui.ini"
+from core.config import read_json, write_json
 
-
-def create_settings(launch_dir: str) -> QSettings:
-    """Prefer an INI file next to the executable, fall back to AppData."""
-    portable = os.path.join(launch_dir, SETTINGS_FILENAME)
-    if _can_write(launch_dir):
-        return QSettings(portable, QSettings.Format.IniFormat)
-
-    app_data = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppConfigLocation)
-    directory = app_data or os.path.join(os.path.expanduser("~"), ".yt-dlp-gui")
-    os.makedirs(directory, exist_ok=True)
-    return QSettings(os.path.join(directory, SETTINGS_FILENAME), QSettings.Format.IniFormat)
+LEGACY_FILENAME = "yt-dlp-gui.ini"
 
 
-def _can_write(directory: str) -> bool:
-    probe = os.path.join(directory, ".ytdlp-gui-write-test")
+class JsonSettings:
+    """Small QSettings-like facade over the app's JSON config."""
+
+    def __init__(self, path: str) -> None:
+        self._path = path
+        self._data = read_json(path)
+
+    def value(self, key: str, default=None):
+        stored = self._data.get(key, default)
+        if isinstance(stored, dict) and "__bytes__" in stored:
+            return QByteArray.fromHex(stored["__bytes__"].encode("ascii"))
+        return stored
+
+    def setValue(self, key: str, value) -> None:  # noqa: N802 - Qt-style API
+        self._data[key] = _to_stored(value)
+
+    def sync(self) -> None:
+        write_json(self._path, self._data)
+
+
+def create_settings(config_path: str) -> JsonSettings:
+    """Open the shared config, migrating an old INI file if one is present."""
+    settings = JsonSettings(config_path)
+    legacy_path = os.path.join(os.path.dirname(config_path), LEGACY_FILENAME)
+    if not os.path.isfile(legacy_path):
+        return settings
+
+    legacy = QSettings(legacy_path, QSettings.Format.IniFormat)
+    for key in legacy.allKeys():
+        if key not in settings._data:
+            settings._data[key] = _to_stored(legacy.value(key))
+    legacy.clear()
+    legacy.sync()
+    settings.sync()
     try:
-        with open(probe, "w", encoding="utf-8") as file:
-            file.write("ok")
-        os.remove(probe)
-        return True
+        os.remove(legacy_path)
     except OSError:
-        return False
+        pass
+    return settings
+
+
+def _to_stored(value):
+    if isinstance(value, QByteArray):
+        return {"__bytes__": bytes(value).hex()}
+    if isinstance(value, (list, tuple)):
+        return [_to_stored(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _to_stored(item) for key, item in value.items()}
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    return str(value)

@@ -49,37 +49,6 @@ def make_primary_button(button: QPushButton) -> None:
     button.setCursor(Qt.CursorShape.PointingHandCursor)
 
 
-# Mirrors the landing page's red donation call-to-action (.btn--primary).
-SUPPORT_BUTTON_STYLE = """
-QPushButton {
-    background-color: #f03f3f;
-    color: #ffffff;
-    border: 1px solid #f03f3f;
-    border-radius: 8px;
-    padding: 8px 22px;
-    font-weight: 700;
-}
-QPushButton:hover {
-    background-color: #ff5c5c;
-    border-color: #ff5c5c;
-}
-QPushButton:pressed {
-    background-color: #c62f2f;
-    border-color: #c62f2f;
-}
-QPushButton:focus {
-    border: 2px solid #ff9a9a;
-}
-"""
-
-
-def make_support_button(button: QPushButton) -> None:
-    """Style a donation button like the landing page's primary CTA."""
-    button.setStyleSheet(SUPPORT_BUTTON_STYLE)
-    button.setMinimumHeight(36)
-    button.setCursor(Qt.CursorShape.PointingHandCursor)
-
-
 LIGHT_STYLESHEET = """
 QGroupBox {
     border: 1px solid #d0d7de;
@@ -177,6 +146,24 @@ QToolButton {
     border: none;
     padding: 4px;
 }
+QCheckBox {
+    color: #e6edf3;
+    spacing: 6px;
+}
+QCheckBox::indicator {
+    width: 14px;
+    height: 14px;
+    background-color: #0d1117;
+    border: 1px solid #8b949e;
+    border-radius: 3px;
+}
+QCheckBox::indicator:hover {
+    border-color: #c9d1d9;
+}
+QCheckBox::indicator:checked {
+    background-color: #1f6feb;
+    border: 2px solid #e6edf3;
+}
 QProgressBar {
     border: 1px solid #2a3140;
     border-radius: 5px;
@@ -199,6 +186,10 @@ QMenu {
     background-color: #161b22;
     color: #e6edf3;
     border: 1px solid #2a3140;
+    padding: 4px 0;
+}
+QMenu::item {
+    padding: 6px 32px 6px 24px;
 }
 QMenu::item:selected {
     background-color: #1f6feb;

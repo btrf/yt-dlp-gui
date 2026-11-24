@@ -1,10 +1,10 @@
 (function () {
     'use strict';
 
-    var APP_VERSION = '3.2.0';
+    var APP_VERSION = '3.2.1';
     var LANG_STORAGE_KEY = 'yt-dlp-gui-lang';
-    var DEFAULT_LANG = 'ru';
-    var SUPPORTED_LANGS = ['ru', 'en'];
+    var DEFAULT_LANG = 'en';
+    var SUPPORTED_LANGS = ['en', 'ru'];
 
     var HTML_KEYS = {
         feature_filename_text: true,
@@ -18,7 +18,6 @@
     var I18N = {
         ru: {
             meta_description: 'yt-dlp GUI — лёгкое портативное приложение для Windows: скачивание видео и аудио с сайтов, поддержка плейлистов, выбор качества и формата, пакетная загрузка. Без установки.',
-            hero_badge: 'Портативное приложение для Windows',
             hero_title: 'Скачивайте видео и аудио без лишних усилий',
             hero_lead: 'Один файл, никакой установки: запустил, вставил ссылку, получил файл.',
             cta_download: 'Скачать для Windows',
@@ -49,8 +48,6 @@
             feature_extra_text: 'Пробросьте любые флаги yt-dlp вручную, если нужно нестандартное поведение.',
             feature_batch_title: 'Пакетная загрузка из файла',
             feature_batch_text: 'Импортируйте <code>.txt</code>-список ссылок — приложение скачает их по очереди в одном запуске.',
-            feature_config_title: 'Запоминание настроек',
-            feature_config_text: 'Выбор качества, шаблон имени и дополнительные аргументы сохраняются между запусками.',
             nav_features: 'Возможности',
             nav_install: 'Установка',
             nav_usage: 'Использование',
@@ -58,7 +55,7 @@
             install_title: 'Установка и запуск',
             install_lead: 'Установка не требуется — приложение работает одним файлом.',
             step_1: 'Скачайте <code>yt-dlp-gui-portable-vX.X.X.exe</code> со страницы релизов.',
-            step_2: 'Сохраните файл в любую папку — например, в <code>C:\\yt-dlp-gui\\</code>.',
+            step_2: 'Сохраните файл в любую папку — например, в <code>C:\\Downloads\\</code>.',
             step_3: 'Запустите <code>.exe</code>.',
             step_4: 'Вставьте ссылку на видео или импортируйте список ссылок из файла и нажмите «Скачать».',
             cta_download_again: 'Перейти к загрузке',
@@ -76,7 +73,7 @@
             options_text: 'Отметьте «Скачать плейлист», чтобы включить выбор области: весь список, первый или последний элемент, диапазон или конкретные номера. Кнопка импорта принимает обычный текстовый файл со ссылками — каждая строка обрабатывается по очереди.',
             support_title: 'Поддержать проект',
             support_lead: 'Проект бесплатный и с открытым кодом. Если он оказался полезным, можно поддержать его донатом.',
-            cta_donate: 'Поддержать на Ko-fi',
+            cta_donate: 'Поддержать на YooMoney',
             cta_issues: 'Сообщить о проблеме',
             support_image_alt: 'QR-код для поддержки проекта',
             support_qr_caption: 'Отсканируйте QR-код',
@@ -86,7 +83,6 @@
         },
         en: {
             meta_description: 'yt-dlp GUI — a lightweight portable app for Windows: download video and audio from websites, playlist support, quality and format selection, batch downloads. No installation.',
-            hero_badge: 'Portable app for Windows',
             hero_title: 'Download video and audio without any hassle',
             hero_lead: 'No installation, just one file: run it, paste a link, get the file.',
             cta_download: 'Download for Windows',
@@ -117,8 +113,6 @@
             feature_extra_text: 'Pass any yt-dlp flags manually if you need non-standard behaviour.',
             feature_batch_title: 'Batch download from file',
             feature_batch_text: 'Import a <code>.txt</code> list of links — the app downloads them one by one in a single run.',
-            feature_config_title: 'Remembers your settings',
-            feature_config_text: 'Quality choice, filename template and extra arguments are kept between launches.',
             nav_features: 'Features',
             nav_install: 'Install',
             nav_usage: 'Usage',
@@ -126,7 +120,7 @@
             install_title: 'Installation and launch',
             install_lead: 'No installation required — the app runs as a single file.',
             step_1: 'Download <code>yt-dlp-gui-portable-vX.X.X.exe</code> from the releases page.',
-            step_2: 'Save the file into any folder, e.g. <code>C:\\yt-dlp-gui\\</code>.',
+            step_2: 'Save the file into any folder, e.g. <code>C:\\Downloads\\</code>.',
             step_3: 'Run the <code>.exe</code>.',
             step_4: 'Paste a video link or import a link list from a file and press "Download".',
             cta_download_again: 'Go to downloads',
@@ -144,7 +138,7 @@
             options_text: 'Tick "Download playlist" to enable scope selection: the whole list, the first or last item, a range or specific numbers. The import button accepts a plain text file with links — every line is processed in order.',
             support_title: 'Support the project',
             support_lead: 'The project is free and open source. If you find it useful, you can support it with a donation.',
-            cta_donate: 'Support on Ko-fi',
+            cta_donate: 'Support YooMoney',
             cta_issues: 'Report an issue',
             support_image_alt: 'QR code to support the project',
             support_qr_caption: 'Scan the QR code',
@@ -222,6 +216,17 @@
         applyLanguage(lang);
     }
 
+    /* The top bar wraps on narrow screens, so its real height must be measured
+       to keep anchored headings (Features/Install/Usage/Support) visible. */
+    function syncTopbarHeight() {
+        var topbar = document.querySelector('.topbar');
+        if (!topbar) {
+            return;
+        }
+        document.documentElement.style.setProperty(
+            '--topbar-height', topbar.offsetHeight + 'px');
+    }
+
     if (typeof document !== 'undefined') {
         var toggleItems = document.querySelectorAll('.lang-toggle__item[data-lang]');
         for (var n = 0; n < toggleItems.length; n++) {
@@ -240,5 +245,8 @@
         }
 
         applyLanguage(SUPPORTED_LANGS.indexOf(stored) !== -1 ? stored : DEFAULT_LANG);
+        syncTopbarHeight();
+        window.addEventListener('resize', syncTopbarHeight);
+        window.addEventListener('load', syncTopbarHeight);
     }
 })();

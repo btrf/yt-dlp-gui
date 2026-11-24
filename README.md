@@ -1,6 +1,6 @@
 # yt-dlp GUI
 
-A portable Windows desktop wrapper for [yt-dlp](https://github.com/yt-dlp/yt-dlp): paste a link, pick options, get the file. No installation required.
+A portable Windows download manager for video hostings: paste a link, pick options, get the file. No installation required.
 
 ![Portable Download Manager][def]
 
@@ -16,8 +16,8 @@ A portable Windows desktop wrapper for [yt-dlp](https://github.com/yt-dlp/yt-dlp
 - Batch downloads from a `.txt` list, with a per-URL result summary and "retry failed"
 - Batch archive and "skip existing" so repeated runs do not download twice
 - `--cookies-from-browser` support for sites that require a login
-- One-click yt-dlp update and the installed version shown in the window
-- Portable: settings and download path live next to the executable
+- One-click yt-dlp update; the installed yt-dlp version is shown in the About dialog
+- Portable: all settings and the download path live in one `yt-dlp-gui.json` next to the executable
 - Russian and English interface (switches on the fly)
 - Live progress, speed and ETA, rotating log file, desktop notifications
 - Recent downloads submenu: the last ten attempted videos by title, one click to reuse
@@ -28,8 +28,6 @@ A portable Windows desktop wrapper for [yt-dlp](https://github.com/yt-dlp/yt-dlp
 1. [Download the latest release](https://github.com/btrf/yt-dlp-gui/releases/latest)
 2. Grab `yt-dlp-gui-portable-vX.Y.Z.exe` - a single file, easiest to move around
 3. Run the `.exe`. Nothing is installed into the system.
-
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/btrf)
 
 ## Usage
 
@@ -67,8 +65,8 @@ Release builds ship working binaries, so nothing has to be installed:
 
 | Binary | Version | Source |
 |---|---|---|
-| `yt-dlp.exe` | 2026.10.26 | [yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases) |
-| `ffmpeg.exe`, `ffprobe.exe` | 9.0.2 (essentials) | [gyan.dev builds](https://www.gyan.dev/ffmpeg/builds/) |
+| `yt-dlp.exe` | 2026.11.23 | [yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases) |
+| `ffmpeg.exe`, `ffprobe.exe` | 9.1 (essentials) | [gyan.dev builds](https://www.gyan.dev/ffmpeg/builds/) |
 
 FFmpeg is distributed under the GPLv3; the license text is bundled as `bin/FFMPEG-LICENSE.txt`.
 
@@ -92,11 +90,11 @@ core/config.py          portable config loading/saving
 ui/main_window.py       the window
 ui/dialogs.py           about / templates / batch summary
 ui/i18n.py              Russian and English strings
-ui/settings.py          portable QSettings (INI next to the exe)
+ui/settings.py          UI settings in the same portable JSON config (migrates old INI)
 tools/bump_version.py   single-command version bump + consistency check
 ```
 
-Build both portable layouts with `build.ps1`; `yt-dlp.exe`, `ffmpeg.exe` and `ffprobe.exe` go into `bin/`.
+Build the portable exe with `build.ps1`; `yt-dlp.exe`, `ffmpeg.exe` and `ffprobe.exe` go into `bin/`. Each local build bumps the patch version (`3.2.0` -> `3.2.1`) and updates `version.py`, the exe resource and the docs. Use `build.ps1 -NoVersionBump` to build without changing the version (the CI and release workflows do this).
 
 Release workflow: bump the version with `python tools/bump_version.py X.Y.Z`, tag `vX.Y.Z` and push the tag - GitHub Actions builds and publishes the artifacts.
 
@@ -106,7 +104,7 @@ This GUI wrapper is provided as-is. It bundles yt-dlp (Unlicense) and FFmpeg (GP
 
 ## Donate
 
-[![YooMoney](https://img.shields.io/badge/Support-YooMoney-orange?style=flat-square&logo=yoomoney)](https://yoomoney.ru/to/41001937179526)  
+[![Support YooMoney](https://img.shields.io/badge/Support-YooMoney-orange?style=flat-square&logo=yoomoney)](https://yoomoney.ru/to/41001937179526)  
 ![QR Code for Donations](docs/qr.png)
 
-[def]: docs/demo.png
+[def]: docs/demo-light.png

@@ -78,7 +78,7 @@ def load_config(
         candidate = os.path.join(config_dir, CONFIG_FILENAME)
         if not os.path.isfile(candidate):
             continue
-        data = _read_json(candidate)
+        data = read_json(candidate)
         if not data:
             continue
         config.update({key: value for key, value in data.items() if value not in (None, "")})
@@ -110,24 +110,28 @@ def save_config(config: AppConfig, download_path: str | None = None) -> bool:
     written: in a one-file build they point into a temporary ``_MEIPASS``
     folder that does not exist on the next launch.
     """
-    data = _read_json(config.config_path)
+    data = read_json(config.config_path)
     if download_path:
         data["default_download_path"] = download_path
+    return write_json(config.config_path, data)
 
-    directory = os.path.dirname(config.config_path)
+
+def write_json(path: str, data: dict) -> bool:
+    """Atomically write a JSON config shared by the app and UI settings."""
+    directory = os.path.dirname(path) or "."
     try:
         os.makedirs(directory, exist_ok=True)
         handle, temp_path = tempfile.mkstemp(prefix=".ytdlp-gui-config-", dir=directory, text=True)
         with os.fdopen(handle, "w", encoding="utf-8") as file:
             json.dump(data, file, indent=2, ensure_ascii=False)
             file.write("\n")
-        os.replace(temp_path, config.config_path)
+        os.replace(temp_path, path)
         return True
     except OSError:
         return False
 
 
-def _read_json(path: str) -> dict:
+def read_json(path: str) -> dict:
     try:
         with open(path, "r", encoding="utf-8-sig") as file:
             data = json.load(file)

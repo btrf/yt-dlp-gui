@@ -33,7 +33,7 @@ jobs:
 
       - name: Build
         shell: pwsh
-        run: ./build.ps1
+        run: ./build.ps1 -NoVersionBump
 
       - name: Publish release
         uses: softprops/action-gh-release@v2

@@ -42,7 +42,7 @@ def build_window(interactive: bool = True) -> MainWindow:
         launch_dir = tempfile.mkdtemp(prefix="yt-dlp-gui-selftest-")
         config.launch_dir = launch_dir
         config.config_path = os.path.join(launch_dir, CONFIG_FILENAME)
-    settings = create_settings(launch_dir)
+    settings = create_settings(config.config_path)
     language = normalize_language(str(settings.value("ui/language", QLocale.system().name())))
     return MainWindow(
         config=config,

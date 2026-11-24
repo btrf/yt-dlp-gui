@@ -16,6 +16,10 @@
   --radius-sm: 8px;
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
   --maxw: 1120px;
+  /* Kept in sync by script.js so anchor jumps clear the sticky top bar. */
+  --topbar-height: 64px;
+  /* Two body lines: 2 * 1.6 line-height * 1rem. */
+  --section-gap: 3.2rem;
 }
 
 *,
@@ -26,6 +30,7 @@
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: var(--topbar-height);
 }
 
 body {
@@ -76,6 +81,21 @@ code {
   max-width: var(--maxw);
   margin: 0 auto;
   padding: 0 24px;
+}
+
+/* Every section gets the same two-line gap before it. Using top padding only
+   keeps the visible gap between two sections at exactly one --section-gap;
+   adding bottom padding to both neighbours would double it. */
+main > section {
+  padding-top: var(--section-gap);
+}
+
+main > section:first-child {
+  padding-top: 0;
+}
+
+main > section:last-child {
+  padding-bottom: var(--section-gap);
 }
 
 /* ---------- Top bar ---------- */
@@ -193,10 +213,6 @@ code {
 
 /* ---------- Hero ---------- */
 
-.hero {
-  padding: 72px 0 56px;
-}
-
 .hero__inner {
   display: grid;
   grid-template-columns: 1.05fr 0.95fr;
@@ -206,19 +222,6 @@ code {
 
 .hero__text {
   position: relative;
-}
-
-.badge {
-  display: inline-block;
-  margin-bottom: 18px;
-  padding: 5px 12px;
-  border-radius: 999px;
-  border: 1px solid rgba(240, 63, 63, 0.45);
-  background: rgba(240, 63, 63, 0.12);
-  color: #ff9b9b;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
 }
 
 .hero h1 {
@@ -350,10 +353,6 @@ code {
 }
 
 /* ---------- Demo ---------- */
-
-.demo {
-  padding: 0 0 56px;
-}
 
 .demo .section__lead {
   margin-bottom: 22px;

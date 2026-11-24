@@ -62,3 +62,6 @@ bin/*.exe
 # Temporary files
 *.tmp
 *.temp
+
+# Demo factory: exe copy, cached video and captures are local-only
+make_png/

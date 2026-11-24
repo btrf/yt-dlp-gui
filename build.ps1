@@ -1,5 +1,9 @@
 # Build yt-dlp GUI: single-file portable exe.
 # Usage:  powershell -ExecutionPolicy Bypass -File build.ps1
+#        powershell -ExecutionPolicy Bypass -File build.ps1 -NoVersionBump
+param(
+    [switch]$NoVersionBump
+)
 $ErrorActionPreference = 'Stop'
 $project = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $project
@@ -19,6 +23,14 @@ foreach ($f in @('bin\yt-dlp.exe', 'bin\ffmpeg.exe')) {
 }
 if (-not (Test-Path 'bin\ffprobe.exe')) {
     Write-Warning 'bin\ffprobe.exe is missing - metadata/thumbnail post-processing will not work in the built app.'
+}
+
+if (-not $NoVersionBump) {
+    Write-Host 'Bumping patch version...'
+    & $py tools\bump_version.py --bump-patch
+    if ($LASTEXITCODE -ne 0) {
+        throw "Version bump failed with exit code $LASTEXITCODE"
+    }
 }
 
 $version = (& $py -c "import version; print(version.APP_VERSION)").Trim()
